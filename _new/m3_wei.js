@@ -20,3 +20,20 @@ function weiMark(p,label,color,r){
 }
 
 function weiMob(q,dt){if(!weiActive())return false;const r=WEI_RULES[M.n];return r.mob?r.mob(q,dt):false;}
+/* 기존 고리 통로 한 곳만 닫는다. 우회로/방 도달성을 보존하는 후보만 사용. */
+function weiRoute(g,a,b){const W=g[0].length,H=g.length,s=Math.floor(a.y/TS)*W+Math.floor(a.x/TS),end=Math.floor(b.y/TS)*W+Math.floor(b.x/TS),d=new Int16Array(W*H).fill(-1),q=[s];d[s]=0;for(let i=0;i<q.length;i++){const v=q[i];if(v===end)return d[v];const x=v%W,y=v/W|0;for(const [dx,dy]of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H||g[ny][nx]!==1)continue;const k=ny*W+nx;if(d[k]>=0)continue;d[k]=d[v]+1;q.push(k);}}return -1;}
+function weiFindGate(m){
+ const base=m.L.wideRooms();
+ for(const pts of m.L.paths.values())for(let i=6;i<pts.length-6;i+=3){const [x,y]=pts[i];if(m.L.rooms.some(r=>Math.abs(x-r.cx)<r.rx+1&&Math.abs(y-r.cy)<r.ry+1))continue;
+ const ends=[pts[Math.max(0,i-6)],pts[Math.min(pts.length-1,i+6)]].map(([a,b])=>({x:(a+.5)*TS,y:(b+.5)*TS}));if(ends.some(p=>blockedAt(p.x,p.y,18)))continue;
+ const cells=[];for(let yy=y-2;yy<=y+2;yy++)for(let xx=x-2;xx<=x+2;xx++)if(m.D.g[yy]&&m.D.g[yy][xx]===1)cells.push([xx,yy,m.tk[yy*m.W+xx]]);
+ if(!cells.length||mobs.some(q=>cells.some(([a,b])=>Math.abs(q.x-(a+.5)*TS)<TS*.8&&Math.abs(q.y-(b+.5)*TS)<TS*.8)))continue;
+ const direct=weiRoute(m.D.g,...ends);for(const [a,b]of cells)m.D.g[b][a]=0;
+ const around=weiRoute(m.D.g,...ends),wide=m.L.wideRooms();const ok=around>=direct+4&&base.every((v,k)=>!v||wide[k]);
+ for(const [a,b]of cells)m.D.g[b][a]=1;if(!ok)continue;
+ ends.sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y));return {x:(x+.5)*TS,y:(y+.5)*TS,cells,near:ends[0],far:ends[1],direct,around,open:false};
+ }
+ throw new Error(m.n+'판 우회 가능한 문 위치 없음');
+}
+function weiGateSet(gate,open){gate.open=open;for(const [x,y,tk]of gate.cells){M.D.g[y][x]=open?1:0;M.tk[y*M.W+x]=open?tk:0;}M.chunks.clear();M.flow=null;}
+function weiDrawGate(g,label){if(g.open)return;weiMark(g,label,'#b7b3c9',55);cx.save();cx.fillStyle='#645e70';cx.fillRect(g.x-55,g.y-100,110,95);cx.strokeStyle='#aaa0ad';cx.lineWidth=4;for(let i=0;i<4;i++)cx.strokeRect(g.x-55+(i%2?12:0),g.y-100+i*24,95,24);cx.restore();}

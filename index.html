@@ -1498,7 +1498,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2342,6 +2342,23 @@ function weiMark(p,label,color,r){
 }
 
 function weiMob(q,dt){if(!weiActive())return false;const r=WEI_RULES[M.n];return r.mob?r.mob(q,dt):false;}
+/* 기존 고리 통로 한 곳만 닫는다. 우회로/방 도달성을 보존하는 후보만 사용. */
+function weiRoute(g,a,b){const W=g[0].length,H=g.length,s=Math.floor(a.y/TS)*W+Math.floor(a.x/TS),end=Math.floor(b.y/TS)*W+Math.floor(b.x/TS),d=new Int16Array(W*H).fill(-1),q=[s];d[s]=0;for(let i=0;i<q.length;i++){const v=q[i];if(v===end)return d[v];const x=v%W,y=v/W|0;for(const [dx,dy]of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H||g[ny][nx]!==1)continue;const k=ny*W+nx;if(d[k]>=0)continue;d[k]=d[v]+1;q.push(k);}}return -1;}
+function weiFindGate(m){
+ const base=m.L.wideRooms();
+ for(const pts of m.L.paths.values())for(let i=6;i<pts.length-6;i+=3){const [x,y]=pts[i];if(m.L.rooms.some(r=>Math.abs(x-r.cx)<r.rx+1&&Math.abs(y-r.cy)<r.ry+1))continue;
+ const ends=[pts[Math.max(0,i-6)],pts[Math.min(pts.length-1,i+6)]].map(([a,b])=>({x:(a+.5)*TS,y:(b+.5)*TS}));if(ends.some(p=>blockedAt(p.x,p.y,18)))continue;
+ const cells=[];for(let yy=y-2;yy<=y+2;yy++)for(let xx=x-2;xx<=x+2;xx++)if(m.D.g[yy]&&m.D.g[yy][xx]===1)cells.push([xx,yy,m.tk[yy*m.W+xx]]);
+ if(!cells.length||mobs.some(q=>cells.some(([a,b])=>Math.abs(q.x-(a+.5)*TS)<TS*.8&&Math.abs(q.y-(b+.5)*TS)<TS*.8)))continue;
+ const direct=weiRoute(m.D.g,...ends);for(const [a,b]of cells)m.D.g[b][a]=0;
+ const around=weiRoute(m.D.g,...ends),wide=m.L.wideRooms();const ok=around>=direct+4&&base.every((v,k)=>!v||wide[k]);
+ for(const [a,b]of cells)m.D.g[b][a]=1;if(!ok)continue;
+ ends.sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y));return {x:(x+.5)*TS,y:(y+.5)*TS,cells,near:ends[0],far:ends[1],direct,around,open:false};
+ }
+ throw new Error(m.n+'판 우회 가능한 문 위치 없음');
+}
+function weiGateSet(gate,open){gate.open=open;for(const [x,y,tk]of gate.cells){M.D.g[y][x]=open?1:0;M.tk[y*M.W+x]=open?tk:0;}M.chunks.clear();M.flow=null;}
+function weiDrawGate(g,label){if(g.open)return;weiMark(g,label,'#b7b3c9',55);cx.save();cx.fillStyle='#645e70';cx.fillRect(g.x-55,g.y-100,110,95);cx.strokeStyle='#aaa0ad';cx.lineWidth=4;for(let i=0;i<4;i++)cx.strokeRect(g.x-55+(i%2?12:0),g.y-100+i*24,95,24);cx.restore();}
 /* 4판 허저: 막다른 보급창 두 곳에 공격으로 불을 붙인다. */
 WEI_RULES[4]={
  init(m){m.wei.depots=weiPoints(m,2).map(p=>({...p,burning:0,burnt:false}));},
@@ -2374,6 +2391,15 @@ WEI_RULES[7]={
  text(){return M.wei.phase==='quiet'?'조용한 길을 조사하라':'복병을 모두 격파하라 · 퇴로 봉쇄';},
  target(){const w=M.wei;if(w.phase==='quiet')return w.point;return mobs.find(q=>!q.dead&&w.cols.includes(q.col))||null;},
  draw(){const w=M.wei;if(w.phase==='quiet')return;for(const [x,y]of w.cells)if(w.blocked){cx.fillStyle='#6b372c';cx.fillRect(x*TS,y*TS,TS,TS);cx.strokeStyle='#d39756';cx.lineWidth=3;cx.strokeRect(x*TS+3,y*TS+3,TS-6,TS-6);}}
+};
+/* 8판 왕이: 항아리로 비밀 문을 열고 안쪽 표식까지 이동한다. */
+WEI_RULES[8]={
+ init(m){const gate=weiFindGate(m);m.wei={gate,jar:{...gate.near},phase:'jar'};weiGateSet(gate,false);},
+ hit(rad){const w=M.wei;if(w.phase==='jar'&&weiNear(P,w.jar,rad)){w.phase='passage';weiGateSet(w.gate,true);debris(w.jar.x,w.jar.y,30,8);showBanner('항아리가 깨지며 숨은 문이 열렸다',2.4);}},
+ tick(){const w=M.wei;if(w.phase==='passage'&&weiNear(P,w.gate.far,100))weiExit('비밀 통로 돌파 · 출구 개방');},
+ text(){return M.wei.phase==='jar'?'수상한 항아리를 공격하라':'숨은 길 안쪽 표식으로 이동하라';},
+ target(){const w=M.wei;return w.phase==='jar'?w.jar:w.gate.far;},
+ draw(){const w=M.wei;weiDrawGate(w.gate,'숨은 벽');if(w.phase==='jar'){weiMark(w.jar,'수상한 항아리','#c0a6ff');cx.save();cx.fillStyle='#9e735b';cx.beginPath();cx.ellipse(w.jar.x,w.jar.y-32,30,35,0,0,Math.PI*2);cx.fill();cx.fillStyle='#d2aa7c';cx.fillRect(w.jar.x-20,w.jar.y-72,40,12);cx.restore();}else weiMark(w.gate.far,'비밀 통로','#c0a6ff');}
 };
 
 function gimInit(m){

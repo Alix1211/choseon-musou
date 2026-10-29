@@ -4,9 +4,9 @@ const b=await chromium.launch();const pg=await b.newPage({viewport:{width:844,he
 const errs=[];pg.on('pageerror',e=>errs.push('PE '+e.message+' '+(e.stack||'').split('\n').slice(0,3).join('|')));
 await pg.goto('http://localhost:8766/index.html');
 await pg.waitForFunction(()=>window.G&&window.G.UI&&window.G.UI.mode==='title',null,{timeout:60000});
-const res=await pg.evaluate(()=>{
+const res=await pg.evaluate((focus)=>{
   const out=[];G.S.cheat=1;
-  for(let n=1;n<=40;n++){
+  for(let n=focus||1;n<=(focus||40);n++){
     G.startStage(n,1);const run=G.M.run;
     for(let k=0;k<run.specs.length;k++){
       if(k>0)G.buildKan(run,k,{clock:0,k0:0,replay:false});
@@ -26,7 +26,7 @@ const res=await pg.evaluate(()=>{
     }
   }
   return out;
-});
+},Number(process.argv[2])||0);
 let badc=0;for(const r of res){if(r.bad||!r.exitOk||!r.guard){badc++;console.log('BAD',JSON.stringify(r));}}
 console.log('total 칸',res.length,'bad',badc);
 const byT={};for(const r of res){const o=byT[r.t]=byT[r.t]||{c:0,mobs:0,props:0,ch:0,jr:0};o.c++;o.mobs+=r.mobs;o.props+=r.props;o.ch+=r.chests;o.jr+=r.jars;}

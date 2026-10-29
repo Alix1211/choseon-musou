@@ -4,10 +4,10 @@ const b=await chromium.launch();const pg=await b.newPage({viewport:{width:844,he
 const errs=[];pg.on('pageerror',e=>errs.push('PE '+e.message));
 await pg.goto('http://localhost:8766/index.html');
 await pg.waitForFunction(()=>window.G&&window.G.UI&&window.G.UI.mode==='title',null,{timeout:60000});
-const res=await pg.evaluate(()=>{
+const res=await pg.evaluate((focus)=>{
   const out=[];G.S.cheat=1;
   const walk=(g,x,y)=>{const tx=Math.floor(x),ty=Math.floor(y);return g[ty]&&g[ty][tx]===1||(g[ty]&&g[ty][tx]>=1);};
-  for(let n=1;n<=40;n++){
+  for(let n=focus||1;n<=(focus||40);n++){
     G.startStage(n,1);const run=G.M.run;
     for(let k=0;k<run.specs.length;k++){
       if(k>0)G.buildKan(run,k,{clock:0,k0:0,replay:false});
@@ -33,7 +33,7 @@ const res=await pg.evaluate(()=>{
     }
   }
   return out;
-});
+},Number(process.argv[2])||0);
 const bad=res.filter(r=>r.miss.length);
 console.log('total',res.length,'bad',bad.length);
 for(const r of bad.slice(0,60))console.log(r.n,r.k,r.t,r.miss.join(' | '));
