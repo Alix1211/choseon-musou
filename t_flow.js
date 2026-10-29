@@ -13,6 +13,9 @@ for(let k=0;k<tot;k++){
   await pg.waitForTimeout(1200);await skip();
   await pg.waitForFunction(()=>G.UI.mode==='battle'&&G.P.mode==='manual',null,{timeout:15000});
   console.log('kan',k,JSON.stringify(await st()));
+  if(await pg.evaluate(()=>G.M.mis==='wei7')){
+    await pg.evaluate(()=>{G.P.hp=1e8;const w=G.M.wei;G.P.x=w.point.x;G.P.y=w.point.y;G.weiTick(.1);for(const c of w.cols)for(const q of [...c.mobs])if(!q.dead)G.killMob(q);G.weiTick(.1);});
+  }
   if(await pg.evaluate(()=>G.M.mis==='wei6')){
     await pg.evaluate(()=>{G.P.hp=1e8;const w=G.M.wei;G.P.x=w.lead.x;G.P.y=w.lead.y;G.weiTick(2);G.P.x=w.trap.x;G.P.y=w.trap.y;w.lead.x=w.trap.x;w.lead.y=w.trap.y;G.weiTick(1.5);});
   }

@@ -2,7 +2,7 @@
 const WEI_RULES={};
 function weiActive(){return M&&M.wei&&M.mis==='wei'+M.n;}
 function weiInit(m){const r=WEI_RULES[m.n];if(!r||!m.gim||!m.gim.startsWith('wei'))return false;m.wei={};m.mis='wei'+m.n;r.init(m);return true;}
-function weiTick(dt){if(!weiActive()||M.ended||M.trans||UI.mode!=='battle'||UI.paused||!['manual','hunt'].includes(P.mode))return false;WEI_RULES[M.n].tick(dt);return false;}
+function weiTick(dt){if(!weiActive()||M.ended||M.trans||UI.mode!=='battle'||UI.paused)return false;const r=WEI_RULES[M.n];if(P.mode==='dead'){if(r.death)r.death();return false;}if(!['manual','hunt'].includes(P.mode))return false;r.tick(dt);return false;}
 function weiHit(rad){if(weiActive()&&UI.mode==='battle'&&!UI.paused&&['manual','hunt'].includes(P.mode)){const r=WEI_RULES[M.n];if(r.hit)r.hit(rad||120);}}
 function weiText(){return WEI_RULES[M.n].text();}
 function weiTarget(){return WEI_RULES[M.n].target();}

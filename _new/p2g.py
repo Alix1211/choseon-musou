@@ -1,5 +1,5 @@
 # GPT 담당 규칙은 별도 파일에 넣고, 빌드 결과에만 연결한다.
-rep("const GIM_OF={1:'commander',3:'vents'};", "const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06'};")
+rep("const GIM_OF={1:'commander',3:'vents'};", "const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07'};")
 rep("function missionTick(dt){", rd('m3_gim.js')+"\nfunction missionTick(dt){\n  if(gimTick(dt))return;")
 rep("    warmGround(m,P.x,P.y);", "    gimInit(m);\n    warmGround(m,P.x,P.y);")
 rep("function misText(){", "function misText(){\n  if(M.mis==='towers')return kanTag()+gimText();")
@@ -18,7 +18,7 @@ rep('function misText(){',"function misText(){\n  if(M.mis==='defend05')return k
 rep('  switch(M.mis){',"  switch(M.mis){\n    case 'defend05':return {x:M.defense05.x,y:M.defense05.y};")
 
 # 위나라 규칙은 판별 파일과 공통 연결부로만 확장한다.
-rep('function gimInit(m){',rd('m3_wei.js')+rd('m3_gim04.js')+rd('m3_gim06.js')+"\nfunction gimInit(m){\n  if(weiInit(m))return;")
+rep('function gimInit(m){',rd('m3_wei.js')+rd('m3_gim04.js')+rd('m3_gim06.js')+rd('m3_gim07.js')+"\nfunction gimInit(m){\n  if(weiInit(m))return;")
 rep('function gimTick(dt){','function gimTick(dt){\n  weiTick(dt);')
 rep('function drawGimmicks(){','function drawGimmicks(){\n  weiDraw();')
 rep('function misText(){','function misText(){\n  if(weiActive())return kanTag()+weiText();')
