@@ -18,3 +18,5 @@ function weiPoints(m,count){
 function weiMark(p,label,color,r){
  cx.save();cx.strokeStyle=color||'#ffd36b';cx.fillStyle=color||'#ffd36b';cx.lineWidth=3;cx.beginPath();cx.ellipse(p.x,p.y,r||65,(r||65)*YR,0,0,Math.PI*2);cx.stroke();cx.font='bold 18px system-ui,sans-serif';cx.textAlign='center';cx.lineWidth=5;cx.strokeStyle='#201426';cx.strokeText(label,p.x,p.y-100);cx.fillText(label,p.x,p.y-100);cx.restore();
 }
+
+function weiMob(q,dt){if(!weiActive())return false;const r=WEI_RULES[M.n];return r.mob?r.mob(q,dt):false;}

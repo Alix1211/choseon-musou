@@ -820,6 +820,7 @@ function chaseMove(m,tg,s,dt){
   moveEnt(m,ex/el*s,ey/el*s,16);
 }
 function updateMob(m,dt){
+  if(weiMob(m,dt))return;
   if(m.dead){m.deadT+=dt;return;}
   m.hurt=Math.max(0,m.hurt-dt);m.stun=Math.max(0,m.stun-dt);m.lunge=Math.max(0,m.lunge-dt*3);
   if(m.static){m.au=0;return;}
@@ -1497,7 +1498,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2339,6 +2340,8 @@ function weiPoints(m,count){
 function weiMark(p,label,color,r){
  cx.save();cx.strokeStyle=color||'#ffd36b';cx.fillStyle=color||'#ffd36b';cx.lineWidth=3;cx.beginPath();cx.ellipse(p.x,p.y,r||65,(r||65)*YR,0,0,Math.PI*2);cx.stroke();cx.font='bold 18px system-ui,sans-serif';cx.textAlign='center';cx.lineWidth=5;cx.strokeStyle='#201426';cx.strokeText(label,p.x,p.y-100);cx.fillText(label,p.x,p.y-100);cx.restore();
 }
+
+function weiMob(q,dt){if(!weiActive())return false;const r=WEI_RULES[M.n];return r.mob?r.mob(q,dt):false;}
 /* 4판 허저: 막다른 보급창 두 곳에 공격으로 불을 붙인다. */
 WEI_RULES[4]={
  init(m){m.wei.depots=weiPoints(m,2).map(p=>({...p,burning:0,burnt:false}));},
@@ -2347,6 +2350,17 @@ WEI_RULES[4]={
  text(){return '보급창 소각 '+M.wei.depots.filter(d=>d.burnt).length+'/2 · 창고를 공격하라';},
  target(){return M.wei.depots.find(d=>!d.burnt)||null;},
  draw(){for(const d of M.wei.depots){weiMark(d,d.burnt?'잿더미':d.burning?'불타는 보급창':'보급창',d.burnt?'#999':'#ffb268');cx.save();cx.fillStyle=d.burnt?'#453a38':'#916034';cx.fillRect(d.x-45,d.y-65,90,60);cx.strokeStyle='#d5ab69';cx.lineWidth=4;cx.strokeRect(d.x-45,d.y-65,90,60);if(d.burning){cx.fillStyle='#ff8e38';for(let i=0;i<5;i++){cx.beginPath();cx.moveTo(d.x-48+i*20,d.y-25);cx.lineTo(d.x-38+i*20,d.y-100-Math.sin(time*8+i)*20);cx.lineTo(d.x-22+i*20,d.y-25);cx.fill();}}cx.restore();}}
+};
+/* 6판 채문희: 접근해 시선을 끈 뒤, 출발점의 포획진으로 유인한다. */
+WEI_RULES[6]={
+ init(m){const g=m.guard;if(!g)throw new Error('6판 유인 대상 없음');g.guardL=false;m.wei={lead:g,home:{x:g.x,y:g.y},trap:{x:P.x,y:P.y},phase:'approach',progress:0,caught:0};},
+ tick(dt){const w=M.wei;if(w.lead.dead){const c=mkCol(w.home.x/TS,w.home.y/TS,{n:3,leader:true,guard:true,set:M.set,tag:'wei6_lure'});w.lead=c.lead;w.lead.guardL=false;w.phase='approach';w.progress=w.caught=0;showBanner('유인 실패 · 다시 접근하라',2);return;}
+ if(w.phase==='approach'){if(weiNear(P,w.lead,170)&&losOpen(P.x,P.y,w.lead.x,w.lead.y,15))w.progress+=dt;else w.progress=0;if(w.progress>=2){w.phase='lured';wakeColony(w.lead.col);showBanner('유혹 성공 · 포획진으로 유인하라',2.5);}}
+ else{w.caught=weiNear(w.lead,w.trap,120)?w.caught+dt:0;if(w.caught>=1.5){w.phase='caught';w.lead.down=true;if(w.lead.bs)w.lead.bs.s='down';w.lead.moving=false;weiExit('장수 포획 · 길이 열렸다');}}},
+ mob(q,dt){const w=M.wei;if(q!==w.lead||q.dead)return false;q.moving=false;q.face=faceTo(P.x-q.x,P.y-q.y);q.hurt=Math.max(0,q.hurt-dt);if(w.phase==='lured'&&Math.hypot(P.x-q.x,P.y-q.y)>45){chaseMove(q,P,q.sp*dt,dt);q.moving=true;}return true;},
+ text(){const w=M.wei;return w.phase==='approach'?'미인계 · 표적 가까이 2초 머물러라':'유혹 성공 · 장수를 분홍 포획진으로 유인하라';},
+ target(){const w=M.wei;return w.phase==='approach'?{x:w.lead.x,y:w.lead.y,ent:w.lead}:w.trap;},
+ draw(){const w=M.wei;weiMark(w.trap,'포획진','#ff8bcb',120);weiMark(w.lead,w.phase==='approach'?'유인 대상':'유혹 중','#ff8bcb');}
 };
 
 function gimInit(m){
