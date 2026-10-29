@@ -11,7 +11,13 @@ const st=()=>pg.evaluate(()=>({k:G.M.idx,mis:G.M.mis,mode:G.UI.mode,pm:G.P.mode,
 const tot=await pg.evaluate(()=>G.M.run.specs.length);
 for(let k=0;k<tot;k++){
   await pg.waitForTimeout(1200);await skip();
+  await pg.waitForFunction(()=>G.UI.mode==='battle'&&G.P.mode==='manual',null,{timeout:15000});
   console.log('kan',k,JSON.stringify(await st()));
+  if(await pg.evaluate(()=>G.M.mis==='defend05')){
+    // 60초를 실시간 대기하지 않고 방어 조건·증원·역습 연결을 확인한다.
+    await pg.evaluate(()=>{const d=G.M.defense05;G.P.hp=1e8;G.P.x=d.x;G.P.y=d.y;for(let i=0;i<60;i++)G.gimTick(1);});
+    if((await pg.evaluate(()=>G.M.mis))!=='guard')throw new Error('방어 후 역습 전환 실패');
+  }
   if(await pg.evaluate(()=>G.M.mis==='towers')){
     // 감시탑은 실제 공격으로 지휘병을 제압하고, 각 탑에서 점령한다.
     for(let i=0;i<2;i++){
