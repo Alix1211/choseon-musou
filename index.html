@@ -1500,7 +1500,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13',14:'wu14',15:'wu15',16:'wu16',17:'wu17',18:'wu18'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13',14:'wu14',15:'wu15',16:'wu16',17:'wu17',18:'wu18',19:'wu19'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2505,6 +2505,14 @@ WEI_RULES[17]={
 };
 /* 18판 손상향: 케인이 선택한 접근 → 추격 유도 → 포획진 방식. */
 WEI_RULES[18]={...WEI_RULES[6]};
+/* 19판 건업 진입: 세 사람을 조사해 성안 내응자를 찾는다. */
+WEI_RULES[19]={
+ init(m){m.wei={people:weiPoints(m,3).map((p,i)=>({...p,id:i+1,ally:i===m.n%3,checked:false,progress:0}))};},
+ tick(dt){for(const q of M.wei.people){if(q.checked)continue;q.progress=weiNear(P,q,90)?q.progress+dt:0;if(q.progress<1)continue;q.checked=true;if(q.ally){weiExit('내응자 발견 · 안에서 성문을 열었다');return;}showBanner('내응자가 아니다 · 다른 사람을 찾아라',2);}},
+ text(){return '성안 내응자를 찾아 가까이 다가가라';},
+ target(){return M.wei.people.filter(q=>!q.checked).sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y))[0]||null;},
+ draw(){for(const q of M.wei.people){weiMark(q,q.checked?'확인 완료':'성안 사람 '+q.id,q.checked?'#89949d':'#9ae1c8');cx.save();cx.fillStyle='#497e81';cx.beginPath();cx.moveTo(q.x,q.y-60);cx.lineTo(q.x-25,q.y);cx.lineTo(q.x+25,q.y);cx.closePath();cx.fill();cx.fillStyle='#dfbb98';cx.beginPath();cx.arc(q.x,q.y-65,16,0,Math.PI*2);cx.fill();cx.fillStyle='#37485e';cx.fillRect(q.x-20,q.y-83,40,12);cx.restore();}}
+};
 
 function gimInit(m){
   if(weiInit(m))return;
