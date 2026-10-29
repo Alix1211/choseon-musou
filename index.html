@@ -1500,7 +1500,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13',14:'wu14'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13',14:'wu14',15:'wu15'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2423,7 +2423,7 @@ WEI_RULES[10]={
 };
 
 /* 오나라 규칙: 검증된 배치/미션 연결부를 재사용한다. */
-function wuOverlay(){if(weiActive()){const r=WEI_RULES[M.n];if(r.overlay)r.overlay();}}
+function wuOverlay(){const fog=weiActive()&&M.n===15,mm=$('mm');if(mm&&mm.dataset.wuFog!==String(fog)){mm.dataset.wuFog=String(fog);mm.style.filter=fog?'blur(8px)':'';mm.style.opacity=fog?'.25':'';}if(weiActive()){const r=WEI_RULES[M.n];if(r.overlay)r.overlay();}}
 function wuFlames(p,r){cx.save();cx.fillStyle='#ff8c39';for(let i=0;i<7;i++){const x=p.x+(i-3)*r/4,h=r*(.9+.3*Math.sin(time*9+i));cx.beginPath();cx.moveTo(x-13,p.y);cx.quadraticCurveTo(x+25,p.y-h*.5,x,p.y-h);cx.quadraticCurveTo(x-25,p.y-h*.5,x+17,p.y);cx.fill();}cx.restore();}
 function wuPath(g,a,b,water){const W=g[0].length,H=g.length,s=a[1]*W+a[0],end=b?b[1]*W+b[0]:-1,prev=new Int32Array(W*H).fill(-1),q=[s];prev[s]=s;
  for(let i=0;i<q.length;i++){const v=q[i];if(v===end)break;const x=v%W,y=v/W|0;for(const [dx,dy]of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<2||ny<2||nx>=W-2||ny>=H-2||(water?g[ny][nx]===1:g[ny][nx]!==1))continue;const k=ny*W+nx;if(prev[k]>=0)continue;prev[k]=v;q.push(k);}}
@@ -2475,6 +2475,15 @@ WEI_RULES[14]={
  target(){return M.wei.torches.filter(t=>!t.broken).sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y))[0]||null;},
  draw(){for(const t of M.wei.torches){weiMark(t,t.broken?'꺼진 횃불':'적 횃불',t.broken?'#808896':'#ffb56b');cx.strokeStyle='#8d6348';cx.lineWidth=8;cx.beginPath();cx.moveTo(t.x,t.y);cx.lineTo(t.x,t.y-70);cx.stroke();if(!t.broken)wuFlames({x:t.x,y:t.y-60},35);}},
  overlay(){wuFog(300+M.wei.torches.filter(t=>t.broken).length*75,'2,5,16');}
+};
+/* 15판 육손: 안개 속 돌 미로에서 팔진석을 순서대로 찾는다. */
+WEI_RULES[15]={
+ init(m){const gates=[];for(let i=0;i<2;i++){let g;try{g=weiFindGate(m);}catch(e){if(!e.message.includes('우회 가능한 문 위치 없음'))throw e;break;}weiGateSet(g,false);gates.push(g);}const stones=weiPoints(m,3).sort((a,b)=>weiRoute(m.D.g,P,a)-weiRoute(m.D.g,P,b));m.wei={gates,stones,index:0,progress:0};},
+ tick(dt){const w=M.wei,p=w.stones[w.index];w.progress=weiNear(P,p,90)?w.progress+dt:0;if(w.progress>=1){w.index++;w.progress=0;showBanner('팔진석 '+w.index+'/3 확인',1.6);if(w.index===3){for(const g of w.gates)weiGateSet(g,true);weiExit('팔진 돌파 · 안개가 걷혔다');}}},
+ text(){return '안개 미로 · 팔진석 '+Math.min(3,M.wei.index+1)+'번을 찾아라 ('+M.wei.index+'/3)';},
+ target(){return M.wei.stones[M.wei.index]||null;},
+ draw(){const w=M.wei;for(const g of w.gates)weiDrawGate(g,'돌벽');for(let i=0;i<w.stones.length;i++){const p=w.stones[i];weiMark(p,'팔진석 '+(i+1),i<w.index?'#81dfc1':'#b7c6ff');cx.fillStyle='#727d98';cx.fillRect(p.x-25,p.y-70,50,65);cx.strokeStyle='#b7c6ff';cx.lineWidth=4;cx.strokeRect(p.x-25,p.y-70,50,65);}},
+ overlay(){wuFog(280,'75,86,108');}
 };
 
 function gimInit(m){

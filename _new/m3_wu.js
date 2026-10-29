@@ -1,5 +1,5 @@
 /* 오나라 규칙: 검증된 배치/미션 연결부를 재사용한다. */
-function wuOverlay(){if(weiActive()){const r=WEI_RULES[M.n];if(r.overlay)r.overlay();}}
+function wuOverlay(){const fog=weiActive()&&M.n===15,mm=$('mm');if(mm&&mm.dataset.wuFog!==String(fog)){mm.dataset.wuFog=String(fog);mm.style.filter=fog?'blur(8px)':'';mm.style.opacity=fog?'.25':'';}if(weiActive()){const r=WEI_RULES[M.n];if(r.overlay)r.overlay();}}
 function wuFlames(p,r){cx.save();cx.fillStyle='#ff8c39';for(let i=0;i<7;i++){const x=p.x+(i-3)*r/4,h=r*(.9+.3*Math.sin(time*9+i));cx.beginPath();cx.moveTo(x-13,p.y);cx.quadraticCurveTo(x+25,p.y-h*.5,x,p.y-h);cx.quadraticCurveTo(x-25,p.y-h*.5,x+17,p.y);cx.fill();}cx.restore();}
 function wuPath(g,a,b,water){const W=g[0].length,H=g.length,s=a[1]*W+a[0],end=b?b[1]*W+b[0]:-1,prev=new Int32Array(W*H).fill(-1),q=[s];prev[s]=s;
  for(let i=0;i<q.length;i++){const v=q[i];if(v===end)break;const x=v%W,y=v/W|0;for(const [dx,dy]of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<2||ny<2||nx>=W-2||ny>=H-2||(water?g[ny][nx]===1:g[ny][nx]!==1))continue;const k=ny*W+nx;if(prev[k]>=0)continue;prev[k]=v;q.push(k);}}

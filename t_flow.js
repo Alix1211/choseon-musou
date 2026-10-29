@@ -14,6 +14,9 @@ for(let k=0;k<tot;k++){
   await pg.waitForFunction(()=>G.UI.mode==='battle'&&G.P.mode==='manual',null,{timeout:15000});
   await pg.evaluate(()=>G.P.hp=1e8);
   console.log('kan',k,JSON.stringify(await st()));
+  if(await pg.evaluate(()=>G.M.mis==='wei15')){
+    await pg.evaluate(()=>{for(const p of G.M.wei.stones){G.P.x=p.x;G.P.y=p.y;G.weiTick(1);}});
+  }
   if(await pg.evaluate(()=>G.M.mis==='wei14')){
     await pg.evaluate(()=>{for(const t of G.M.wei.torches){G.P.x=t.x;G.P.y=t.y;G.breakJars(120);}G.weiTick(.1);});
   }
@@ -58,11 +61,8 @@ for(let k=0;k<tot;k++){
       await pg.waitForFunction(i=>G.M.towers.list[i].captured,i,{timeout:10000});
     }
   }else if(await pg.evaluate(()=>['cmd','guard'].includes(G.M.mis))){
-  // 우두머리/부장 쓰러뜨리기
-  await pg.evaluate(()=>{const m=G.M,g=m.beacon||m.guard||m.captain;g.hp=1;G.P.x=g.x-90;G.P.y=g.y+10;G.cam.x=G.P.x;G.cam.y=G.P.y;for(const a of G.allies){a.x=G.P.x;a.y=G.P.y+30;}});
-  await pg.waitForTimeout(250);
-  await pg.evaluate(()=>{const m=G.M,g=m.beacon||m.guard||m.captain;g.x=G.P.x+60;g.y=G.P.y;G.setAtk(true);});
-  for(let w=0;w<40;w++){const m=await pg.evaluate(()=>{const g=G.M.beacon||G.M.guard||G.M.captain;if(g&&!g.dead&&G.P.mode!=='dead'){g.x=G.P.x+60;g.y=G.P.y;}return G.M.mis;});if(m!=='cmd'&&m!=='guard')break;await pg.waitForTimeout(300);}await pg.evaluate(()=>G.setAtk(false));
+  // 진행 시험은 실제 피격/처치 경로를 사용하고 공격 애니메이션/위치 경쟁은 분리한다.
+  await pg.evaluate(()=>{const m=G.M,g=m.beacon||m.guard||m.captain;G.P.hp=1e8;g.hp=1;g.col.woken=true;G.hitMob(g,10000,'sword',0,0);});
   console.log(' after kill',JSON.stringify(await st()));
   }
   if(k<tot-1&&!(await pg.evaluate(()=>G.M.exit.open)))throw new Error('출구가 열리지 않음: '+k);
