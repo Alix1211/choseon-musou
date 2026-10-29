@@ -1,0 +1,191 @@
+{
+  "0:spear": {
+    "f": "a/soldier_walk/wei_spearman_walk_3dir_4f.webp",
+    "rows": [
+      {
+        "ax": 209.5,
+        "ay": 362.0,
+        "h": 355.0
+      },
+      {
+        "ax": 219.5,
+        "ay": 362.0,
+        "h": 338.0
+      },
+      {
+        "ax": 182.0,
+        "ay": 348.0,
+        "h": 348.0
+      }
+    ],
+    "source_sha256": "d8fd20f943d4b202911580fde27ebdb2c27b73ebc3cb0bcc43ee61f6e7482cfe"
+  },
+  "0:bow": {
+    "f": "a/soldier_walk/wei_archer_walk_3dir_4f.webp",
+    "rows": [
+      {
+        "ax": 185.0,
+        "ay": 362.0,
+        "h": 353.5
+      },
+      {
+        "ax": 247.5,
+        "ay": 359.5,
+        "h": 340.5
+      },
+      {
+        "ax": 180.5,
+        "ay": 348.5,
+        "h": 348.5
+      }
+    ],
+    "source_sha256": "532963eeebbb9eebf9c8286694cb1a4a37d9d7f10b41029f67c9e40c9c790a4c"
+  },
+  "0:cav": {
+    "f": "a/soldier_walk/wei_cavalry_walk_3dir_4f.webp",
+    "rows": [
+      {
+        "ax": 204.5,
+        "ay": 362.0,
+        "h": 357.0
+      },
+      {
+        "ax": 225.0,
+        "ay": 362.0,
+        "h": 325.5
+      },
+      {
+        "ax": 202.0,
+        "ay": 357.0,
+        "h": 353.0
+      }
+    ],
+    "source_sha256": "96526411c1442666ac8e86062db1072079c638e523ce22b7cc72c341d7a99471"
+  },
+  "1:spear": {
+    "f": "a/soldier_walk/shu_spearman_walk_3dir_4f.webp",
+    "rows": [
+      {
+        "ax": 195.5,
+        "ay": 362.0,
+        "h": 340.5
+      },
+      {
+        "ax": 151.0,
+        "ay": 351.5,
+        "h": 320.0
+      },
+      {
+        "ax": 173.5,
+        "ay": 338.5,
+        "h": 338.5
+      }
+    ],
+    "source_sha256": "f9051ad45fb9450effed709d45f92b306512efde27219931853a45b99f1bf814"
+  },
+  "1:bow": {
+    "f": "a/soldier_walk/shu_archer_walk_3dir_4f.webp",
+    "rows": [
+      {
+        "ax": 184.0,
+        "ay": 362.0,
+        "h": 359.5
+      },
+      {
+        "ax": 275.5,
+        "ay": 360.0,
+        "h": 346.5
+      },
+      {
+        "ax": 175.5,
+        "ay": 355.0,
+        "h": 355.0
+      }
+    ],
+    "source_sha256": "08dc3c622a5259cde26c1aca4d8c39077f0e3caeea811026ba1b6e584aba4caf"
+  },
+  "1:cav": {
+    "f": "a/soldier_walk/shu_cavalry_walk_3dir_4f.webp",
+    "rows": [
+      {
+        "ax": 171.0,
+        "ay": 362.0,
+        "h": 349.0
+      },
+      {
+        "ax": 204.0,
+        "ay": 343.0,
+        "h": 326.0
+      },
+      {
+        "ax": 190.0,
+        "ay": 345.5,
+        "h": 345.5
+      }
+    ],
+    "source_sha256": "06f3b1eb39a7e6e69e6f165a067d045fc95dc610beed8f653c22ad74666bfcdc"
+  },
+  "2:spear": {
+    "f": "a/soldier_walk/wu_spearman_walk_3dir_4f.webp",
+    "rows": [
+      {
+        "ax": 176.0,
+        "ay": 356.0,
+        "h": 347.0
+      },
+      {
+        "ax": 212.5,
+        "ay": 346.5,
+        "h": 346.0
+      },
+      {
+        "ax": 188.5,
+        "ay": 349.0,
+        "h": 349.0
+      }
+    ],
+    "source_sha256": "447f402a8ff143ee21da1a2a4206c48d2f5420cee3b8dd0b7b3c07dbd39b6e5c"
+  },
+  "2:bow": {
+    "f": "a/soldier_walk/wu_archer_walk_3dir_4f.webp",
+    "rows": [
+      {
+        "ax": 200.0,
+        "ay": 362.0,
+        "h": 353.0
+      },
+      {
+        "ax": 244.0,
+        "ay": 362.0,
+        "h": 342.0
+      },
+      {
+        "ax": 158.5,
+        "ay": 357.0,
+        "h": 353.5
+      }
+    ],
+    "source_sha256": "05ee5b3160a332545c4288c5b4bb50d5092853ff51c6efb26a1c848d7f3e6446"
+  },
+  "2:cav": {
+    "f": "a/soldier_walk/wu_cavalry_walk_3dir_4f.webp",
+    "rows": [
+      {
+        "ax": 201.0,
+        "ay": 362.0,
+        "h": 353.0
+      },
+      {
+        "ax": 191.0,
+        "ay": 362.0,
+        "h": 326.0
+      },
+      {
+        "ax": 187.0,
+        "ay": 352.0,
+        "h": 337.5
+      }
+    ],
+    "source_sha256": "6ab9eacabfcc327e7f319bb3312c87bfb21138b1b34bc8c64727f054a0a5d84b"
+  }
+}

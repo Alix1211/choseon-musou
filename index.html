@@ -388,6 +388,28 @@ const rnd=(a,b)=>a+Math.random()*(b-a),rint=(a,b)=>Math.floor(rnd(a,b+1));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 const A={};   // 불러온 그림
+const SOLDIER_WALK={"0:spear":{"f":"a/soldier_walk/wei_spearman_walk_3dir_4f.webp","rows":[{"ax":209.5,"ay":362.0,"h":355.0},{"ax":219.5,"ay":362.0,"h":338.0},{"ax":182.0,"ay":348.0,"h":348.0}],"source_sha256":"d8fd20f943d4b202911580fde27ebdb2c27b73ebc3cb0bcc43ee61f6e7482cfe"},"0:bow":{"f":"a/soldier_walk/wei_archer_walk_3dir_4f.webp","rows":[{"ax":185.0,"ay":362.0,"h":353.5},{"ax":247.5,"ay":359.5,"h":340.5},{"ax":180.5,"ay":348.5,"h":348.5}],"source_sha256":"532963eeebbb9eebf9c8286694cb1a4a37d9d7f10b41029f67c9e40c9c790a4c"},"0:cav":{"f":"a/soldier_walk/wei_cavalry_walk_3dir_4f.webp","rows":[{"ax":204.5,"ay":362.0,"h":357.0},{"ax":225.0,"ay":362.0,"h":325.5},{"ax":202.0,"ay":357.0,"h":353.0}],"source_sha256":"96526411c1442666ac8e86062db1072079c638e523ce22b7cc72c341d7a99471"},"1:spear":{"f":"a/soldier_walk/shu_spearman_walk_3dir_4f.webp","rows":[{"ax":195.5,"ay":362.0,"h":340.5},{"ax":151.0,"ay":351.5,"h":320.0},{"ax":173.5,"ay":338.5,"h":338.5}],"source_sha256":"f9051ad45fb9450effed709d45f92b306512efde27219931853a45b99f1bf814"},"1:bow":{"f":"a/soldier_walk/shu_archer_walk_3dir_4f.webp","rows":[{"ax":184.0,"ay":362.0,"h":359.5},{"ax":275.5,"ay":360.0,"h":346.5},{"ax":175.5,"ay":355.0,"h":355.0}],"source_sha256":"08dc3c622a5259cde26c1aca4d8c39077f0e3caeea811026ba1b6e584aba4caf"},"1:cav":{"f":"a/soldier_walk/shu_cavalry_walk_3dir_4f.webp","rows":[{"ax":171.0,"ay":362.0,"h":349.0},{"ax":204.0,"ay":343.0,"h":326.0},{"ax":190.0,"ay":345.5,"h":345.5}],"source_sha256":"06f3b1eb39a7e6e69e6f165a067d045fc95dc610beed8f653c22ad74666bfcdc"},"2:spear":{"f":"a/soldier_walk/wu_spearman_walk_3dir_4f.webp","rows":[{"ax":176.0,"ay":356.0,"h":347.0},{"ax":212.5,"ay":346.5,"h":346.0},{"ax":188.5,"ay":349.0,"h":349.0}],"source_sha256":"447f402a8ff143ee21da1a2a4206c48d2f5420cee3b8dd0b7b3c07dbd39b6e5c"},"2:bow":{"f":"a/soldier_walk/wu_archer_walk_3dir_4f.webp","rows":[{"ax":200.0,"ay":362.0,"h":353.0},{"ax":244.0,"ay":362.0,"h":342.0},{"ax":158.5,"ay":357.0,"h":353.5}],"source_sha256":"05ee5b3160a332545c4288c5b4bb50d5092853ff51c6efb26a1c848d7f3e6446"},"2:cav":{"f":"a/soldier_walk/wu_cavalry_walk_3dir_4f.webp","rows":[{"ax":201.0,"ay":362.0,"h":353.0},{"ax":191.0,"ay":362.0,"h":326.0},{"ax":187.0,"ay":352.0,"h":337.5}],"source_sha256":"6ab9eacabfcc327e7f319bb3312c87bfb21138b1b34bc8c64727f054a0a5d84b"}};
+/* 일반 병사 이동: 정면 0 / 오른쪽 측면 1 / 후면 2, 방향별 4프레임·6fps.
+   실제 전투 수치·충돌·이동은 그대로 두고 그림만 교체한다. */
+function soldierWalkFrame(m,dir){
+  const key=m.set+':'+m.type,wk=SOLDIER_WALK[key];
+  if(!wk||!A.soldierWalk||!A.soldierWalk[key]||!m.moving||m.dead||m.down||m.wind>0||m.lunge>0||m.stun>0)return null;
+  const row=dir==='front'?0:dir==='side'?1:2,col=Math.floor((time+m.seed)*6)%4;
+  return {key,row,col,anchor:wk.rows[row]};
+}
+function drawSoldierWalk(m,dir,r,alpha){
+  const f=soldierWalkFrame(m,dir);if(!f)return false;
+  const im=A.soldierWalk[f.key],a=f.anchor,s=r.h/a.h,x=-a.ax*s,y=-a.ay*s,size=362*s;
+  // drawMob이 적용하는 방향 반전·개체 크기·투명도를 그대로 재사용.
+  cx.drawImage(im,f.col*362,f.row*362,362,362,x,y,size,size);
+  if(m.hurt>0){
+    const key='sw:'+f.key+':'+f.row+':'+f.col;let c=white.get(key);
+    if(!c){c=newCanvas(362,362);const g=c.getContext('2d');g.drawImage(im,f.col*362,f.row*362,362,362,0,0,362,362);g.globalCompositeOperation='source-in';g.fillStyle='#fff';g.fillRect(0,0,362,362);white.set(key,c);}
+    cx.globalAlpha=alpha*.75*(m.hurt/.14);cx.drawImage(c,x,y,size,size);
+  }
+  return true;
+}
+
 /* 걷기 시트가 있는 장수: 행 0 정면 · 1 후면 · 2 오른쪽 측면, 열 4컷(150ms) */
 const WALK={shangxiang:{f:'a/walk_shangxiang.webp',fw:308,ax:154,ay:[308,308,299]},zhenji:{f:'a/walk_zhenji.webp',fw:308,ax:154,ay:[308,306,302]},wenji:{f:'a/walk_wenji.webp',fw:308,ax:154,ay:[308,308,301]},wangyi:{f:'a/walk_wangyi.webp',fw:308,ax:154,ay:[308,308,302]},xiaoqiao:{f:'a/walk_xiaoqiao.webp',fw:308,ax:154,ay:[308,304,299]},daqiao:{f:'a/walk_daqiao.webp',fw:308,ax:154,ay:[308,308,301]},yinping:{f:'a/walk_yinping.webp',fw:308,ax:154,ay:[304,282,288]},xingcai:{f:'a/walk_xingcai.webp',fw:308,ax:154,ay:[308,308,304]},yueying:{f:'a/walk_yueying.webp',fw:308,ax:154,ay:[308,308,299]}};
 let VW=0,VH=0,Z=1,DPR=1;
@@ -398,7 +420,8 @@ async function loadAll(){
   const J=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u);return r.json();});
   const [man,mj,tj,pj,ij,fj]=await Promise.all([J('a/choseon.json'),J('a/mobs.json'),J('a/tiles.json'),J('a/props.json'),J('a/items.json'),J('a/food.json')]);
   A.fj=fj;A.man=man;A.mj=mj;A.tj=tj;A.pj=pj;A.ij=ij;A.sheets={};A.walk={};
-  const jobs=[];
+  const jobs=[];A.soldierWalk={};
+  for(const key in SOLDIER_WALK)jobs.push(loadImg(SOLDIER_WALK[key].f).then(im=>A.soldierWalk[key]=im));
   for(const id in WALK)jobs.push(loadImg(WALK[id].f).then(im=>A.walk[id]=im).catch(()=>{}));
   for(const a in man)for(const d in man[a])jobs.push(loadImg('a/'+man[a][d].file).then(im=>A.sheets[a+'_'+d]=im));
   jobs.push(loadImg('a/'+mj.img).then(im=>A.mobs=im),loadImg('a/tiles.webp').then(im=>A.tiles=im),loadImg('a/props.webp').then(im=>A.props=im),loadImg('a/items.webp').then(im=>A.itemsImg=im),loadImg('a/food.webp').then(im=>A.food=im));
@@ -2961,7 +2984,7 @@ function drawMob(m){
   else{
   cx.save();cx.translate(bx,by);cx.globalAlpha=alpha;cx.scale((flip?-1:1)*sc*sx,sc*sy);
   const WK=A.walk&&A.walk[m.type]&&WALK[m.type];
-  if(WK){
+  if(drawSoldierWalk(m,dir,r,alpha)){}else if(WK){
     const row=dir==='front'?0:dir==='back'?1:2,col=m.moving&&!m.down?Math.floor((time+m.seed)*6.67)%4:1,fw=WK.fw;
     cx.drawImage(A.walk[m.type],col*fw,row*fw,fw,fw,-WK.ax,-WK.ay[row],fw,fw);
     if(m.hurt>0){cx.globalAlpha=alpha*.75*(m.hurt/.14);cx.drawImage(whiteWalk(m.type,row,col),-WK.ax,-WK.ay[row]);}
@@ -3794,7 +3817,7 @@ addEventListener('visibilitychange',save);
     cutDefLoad();
     showScreen('title');
     $('load').remove();
-    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,gimTick,gimTarget,gimText,killMob,blockedAt};
+    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx}};
     requestAnimationFrame(loop);
   }catch(e){$('load').textContent='오류: '+e.message;console.error(e);}
 })();
