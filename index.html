@@ -1027,6 +1027,7 @@ function dmgNum(base){
   return [v,crit];
 }
 function hitMob(m,base,w,kb,ang,tag){
+  if(m.col&&m.col.weiHidden)return;
   if(m.dead||m.down)return;
   if(P)P.idleT=0;
   let [v,crit]=dmgNum(base);if(m.boss&&m.bs.s==='stunned')v*=1.5;
@@ -1498,7 +1499,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2020,7 +2021,7 @@ function buildMusou(cfg){
   buildKan(run,0,null);
 }
 function buildKan(run,idx,carry){
-  const n=run.n,cfg=run.cfg,sp=run.specs[idx],gim=idx===0?run.gim:(run.gim==='vents'?'vents':null);
+  const n=run.n,cfg=run.cfg,sp=run.specs[idx],gim=idx===0?run.gim:(['vents','wei10'].includes(run.gim)?run.gim:null);
   const oldRand=Math.random;Math.random=mulberry(n*104729+idx*31+7);   // 맵 모양·소품·부대 배치는 스테이지·칸마다 늘 같다
   try{
     const L=genKan(n,sp),theme=sp.th,sty={F:'out',W:'out',S:'out',I:'out',V:'out',C:'cave',D:'dun',Y:'yard',H:'hall',T:'hall'}[sp.t];
@@ -2114,7 +2115,7 @@ function kanIntro(m,run,sp,idx){
   showBanner((tot>1?(idx+1)+'/'+tot+'칸 · ':'')+sp.nm,1.8);
   if(idx>0)queueDlg('kan'+idx,1.5);
   if(m.gim&&idx===0){
-    const txt=m.gim==='commander'&&m.openHour?m.openHour+'시 방향 NPC 거점병장을 쓰러뜨려야 길이 열린다':run.cfg.gm;
+    const txt=m.gim==='commander'&&m.openHour?m.openHour+'시 방향 NPC 거점병장을 쓰러뜨려야 길이 열린다':(m.wei||m.defense05?misText():run.cfg.gm);
     if(txt)setTimeout(()=>{if(M===m&&UI.mode==='battle'&&!M.trans)showBanner(txt,2.8);},2100);
   }
 }
@@ -2341,7 +2342,7 @@ function weiMark(p,label,color,r){
  cx.save();cx.strokeStyle=color||'#ffd36b';cx.fillStyle=color||'#ffd36b';cx.lineWidth=3;cx.beginPath();cx.ellipse(p.x,p.y,r||65,(r||65)*YR,0,0,Math.PI*2);cx.stroke();cx.font='bold 18px system-ui,sans-serif';cx.textAlign='center';cx.lineWidth=5;cx.strokeStyle='#201426';cx.strokeText(label,p.x,p.y-100);cx.fillText(label,p.x,p.y-100);cx.restore();
 }
 
-function weiMob(q,dt){if(!weiActive())return false;const r=WEI_RULES[M.n];return r.mob?r.mob(q,dt):false;}
+function weiMob(q,dt){if(q.col&&q.col.weiHidden)return true;if(!weiActive())return false;const r=WEI_RULES[M.n];return r.mob?r.mob(q,dt):false;}
 /* 기존 고리 통로 한 곳만 닫는다. 우회로/방 도달성을 보존하는 후보만 사용. */
 function weiRoute(g,a,b){const W=g[0].length,H=g.length,s=Math.floor(a.y/TS)*W+Math.floor(a.x/TS),end=Math.floor(b.y/TS)*W+Math.floor(b.x/TS),d=new Int16Array(W*H).fill(-1),q=[s];d[s]=0;for(let i=0;i<q.length;i++){const v=q[i];if(v===end)return d[v];const x=v%W,y=v/W|0;for(const [dx,dy]of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H||g[ny][nx]!==1)continue;const k=ny*W+nx;if(d[k]>=0)continue;d[k]=d[v]+1;q.push(k);}}return -1;}
 function weiFindGate(m){
@@ -2383,8 +2384,8 @@ WEI_RULES[6]={
 WEI_RULES[7]={
  init(m){const p=weiPoints(m,1)[0],st=m.D.start;const rx=Math.ceil(m.L.st.rx+2),ry=Math.ceil(m.L.st.ry+2),cells=[];
  for(let y=st.cy-ry;y<=st.cy+ry;y++)for(let x=st.cx-rx;x<=st.cx+rx;x++){if(Math.abs(x-st.cx)!==rx&&Math.abs(y-st.cy)!==ry)continue;if(m.D.g[y]&&m.D.g[y][x]===1)cells.push([x,y,m.tk[y*m.W+x]]);}
- const cols=m.colonies.filter(c=>!c.hold);for(const c of cols)c.hold=true;m.wei={point:p,cols,cells,phase:'quiet',blocked:false};},
- tick(){const w=M.wei;if(w.phase==='quiet'&&weiNear(P,w.point,210)){w.phase='ambush';w.blocked=true;for(const [x,y]of w.cells)M.D.g[y][x]=0;M.flow=null;for(const c of w.cols){c.hold=false;wakeColony(c);}showBanner('복병! 퇴로가 막혔다',2.4);}
+ const cols=m.colonies.filter(c=>!c.hold);for(const c of cols){c.hold=true;c.weiHidden=true;}m.wei={point:p,cols,cells,phase:'quiet',blocked:false};},
+ tick(){const w=M.wei;if(w.phase==='quiet'&&weiNear(P,w.point,210)){w.phase='ambush';w.blocked=true;for(const [x,y]of w.cells)M.D.g[y][x]=0;M.flow=null;for(const c of w.cols){c.hold=false;c.weiHidden=false;wakeColony(c);}showBanner('복병! 퇴로가 막혔다',2.4);}
  if(w.phase==='ambush'&&w.cols.every(c=>c.mobs.every(q=>q.dead))){this.restore();weiExit('복병 격파 · 퇴로와 성문 개방');}},
  restore(){const w=M.wei;for(const [x,y]of w.cells)M.D.g[y][x]=1;w.blocked=false;M.flow=null;},
  death(){this.restore();},
@@ -2408,6 +2409,16 @@ WEI_RULES[9]={
  text(){return '정문 봉쇄 · 샛길로 돌아 안쪽 개폐기를 작동하라';},
  target(){return M.wei.lever;},
  draw(){const w=M.wei;weiDrawGate(w.gate,'봉쇄된 정문');weiMark(w.lever,'안쪽 개폐기','#71dfce');cx.save();cx.fillStyle='#776b73';cx.fillRect(w.lever.x-25,w.lever.y-32,50,32);cx.strokeStyle='#bce8dc';cx.lineWidth=7;cx.beginPath();cx.moveTo(w.lever.x,w.lever.y-28);cx.lineTo(w.lever.x+18,w.lever.y-66);cx.stroke();cx.restore();}
+};
+/* 10판 조조: 모든 칸에서 복병 세 차례를 돌파한 뒤 내성 구출로 이어진다. */
+WEI_RULES[10]={
+ init(m){const cols=m.colonies.filter(c=>!c.hold).sort((a,b)=>Math.hypot(a.cx-P.x,a.cy-P.y)-Math.hypot(b.cx-P.x,b.cy-P.y));if(cols.length<3)throw new Error('10판 복병 구역 부족');const groups=[[],[],[]];cols.forEach((c,i)=>{c.hold=true;c.weiHidden=true;groups[Math.min(2,Math.floor(i*3/cols.length))].push(c);});m.wei={groups,index:0,phase:'approach'};},
+ tick(){const w=M.wei,cs=w.groups[w.index];if(!cs)return;
+ if(w.phase==='approach'&&weiNear(P,{x:cs[0].cx,y:cs[0].cy},230)){w.phase='fight';for(const c of cs){c.hold=false;c.weiHidden=false;wakeColony(c);}showBanner('복병 '+(w.index+1)+'/3 출현!',2);}
+ if(w.phase==='fight'&&cs.every(c=>c.mobs.every(q=>q.dead))){w.index++;w.phase='approach';if(w.index<3){showBanner('복병 격파 · 다음 길로',1.8);return;}if(M.sp.last){M.mis='guard';if(M.captain.dead)onCaptainDead(M.captain);showBanner('연속 복병 돌파 · 내성으로',2.4);}else weiExit('연속 복병 돌파 · 다음 구역으로');}},
+ text(){const w=M.wei,cs=w.groups[w.index]||[];return '연속 복병 '+Math.min(3,w.index+1)+'/3 · '+(w.phase==='approach'?'길을 따라 전진하라':cs.reduce((n,c)=>n+c.mobs.filter(q=>!q.dead).length,0)+'명 남음');},
+ target(){const w=M.wei,cs=w.groups[w.index];if(!cs)return null;if(w.phase==='approach')return {x:cs[0].cx,y:cs[0].cy};return mobs.find(q=>!q.dead&&cs.includes(q.col))||null;},
+ draw(){const w=M.wei;if(w.phase==='approach'){const p=this.target();if(p)weiMark(p,'진격로 '+(w.index+1),'#ffaf75');}}
 };
 
 function gimInit(m){
@@ -3106,6 +3117,7 @@ function drawStill(m,bx,by,sx,sy,alpha){
   cx.restore();cx.globalAlpha=1;
 }
 function drawMob(m){
+  if(m.col&&m.col.weiHidden)return;
   if(m.beacon){drawBeacon(m);return;}
   const stl=!!MT[m.type].still;
   const dk=dirKey(m.face),dir=dk[0],flip=dk[1],r=stl?null:A.mj.mobs[m.set][m.type][dir];
@@ -3965,7 +3977,7 @@ addEventListener('visibilitychange',save);
     cutDefLoad();
     showScreen('title');
     $('load').remove();
-    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx}};
+    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,hitMob,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx}};
     requestAnimationFrame(loop);
   }catch(e){$('load').textContent='오류: '+e.message;console.error(e);}
 })();

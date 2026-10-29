@@ -19,7 +19,7 @@ function weiMark(p,label,color,r){
  cx.save();cx.strokeStyle=color||'#ffd36b';cx.fillStyle=color||'#ffd36b';cx.lineWidth=3;cx.beginPath();cx.ellipse(p.x,p.y,r||65,(r||65)*YR,0,0,Math.PI*2);cx.stroke();cx.font='bold 18px system-ui,sans-serif';cx.textAlign='center';cx.lineWidth=5;cx.strokeStyle='#201426';cx.strokeText(label,p.x,p.y-100);cx.fillText(label,p.x,p.y-100);cx.restore();
 }
 
-function weiMob(q,dt){if(!weiActive())return false;const r=WEI_RULES[M.n];return r.mob?r.mob(q,dt):false;}
+function weiMob(q,dt){if(q.col&&q.col.weiHidden)return true;if(!weiActive())return false;const r=WEI_RULES[M.n];return r.mob?r.mob(q,dt):false;}
 /* 기존 고리 통로 한 곳만 닫는다. 우회로/방 도달성을 보존하는 후보만 사용. */
 function weiRoute(g,a,b){const W=g[0].length,H=g.length,s=Math.floor(a.y/TS)*W+Math.floor(a.x/TS),end=Math.floor(b.y/TS)*W+Math.floor(b.x/TS),d=new Int16Array(W*H).fill(-1),q=[s];d[s]=0;for(let i=0;i<q.length;i++){const v=q[i];if(v===end)return d[v];const x=v%W,y=v/W|0;for(const [dx,dy]of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H||g[ny][nx]!==1)continue;const k=ny*W+nx;if(d[k]>=0)continue;d[k]=d[v]+1;q.push(k);}}return -1;}
 function weiFindGate(m){
