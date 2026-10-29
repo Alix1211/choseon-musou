@@ -14,3 +14,4 @@ function wuBoatRoute(m){const st=m.D.start,g=m.D.g,W=m.W;let best=null;
  m.props=m.props.filter(p=>m.tk[Math.floor(p.y/TS)*W+Math.floor(p.x/TS)]!==5);m.theme='summer';m.chunks.clear();return {launch:best.launch,camp:dest.camp,path};
 }
 function wuCanHit(q){if(!weiActive())return true;const r=WEI_RULES[M.n];return r.canHit?r.canHit(q):true;}
+function wuFog(radius,shade){const g=cx.createRadialGradient(P.x,P.y,60,P.x,P.y,radius);g.addColorStop(0,'rgba('+shade+',0)');g.addColorStop(.6,'rgba('+shade+',.18)');g.addColorStop(1,'rgba('+shade+',.94)');cx.save();cx.fillStyle=g;cx.fillRect(0,0,M.W*TS,M.H*TS);cx.restore();}

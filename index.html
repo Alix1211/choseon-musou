@@ -1500,7 +1500,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13',14:'wu14'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2438,6 +2438,7 @@ function wuBoatRoute(m){const st=m.D.start,g=m.D.g,W=m.W;let best=null;
  m.props=m.props.filter(p=>m.tk[Math.floor(p.y/TS)*W+Math.floor(p.x/TS)]!==5);m.theme='summer';m.chunks.clear();return {launch:best.launch,camp:dest.camp,path};
 }
 function wuCanHit(q){if(!weiActive())return true;const r=WEI_RULES[M.n];return r.canHit?r.canHit(q):true;}
+function wuFog(radius,shade){const g=cx.createRadialGradient(P.x,P.y,60,P.x,P.y,radius);g.addColorStop(0,'rgba('+shade+',0)');g.addColorStop(.6,'rgba('+shade+',.18)');g.addColorStop(1,'rgba('+shade+',.94)');cx.save();cx.fillStyle=g;cx.fillRect(0,0,M.W*TS,M.H*TS);cx.restore();}
 /* 11판 황개: 물길의 불배 점화 → 적진 충돌 → 화공 성공. */
 WEI_RULES[11]={
  init(m){const r=wuBoatRoute(m);m.wei={...r,boat:{...r.path[0]},index:1,phase:'launch',burn:0};},
@@ -2463,6 +2464,17 @@ WEI_RULES[13]={
  text(){return M.wei.phase==='search'?'수상한 벽 가까이에서 숨은 장치를 찾아라':'비밀 통로 안쪽 표식으로 이동하라';},
  target(){const w=M.wei;return w.phase==='search'?w.gate.near:w.gate.far;},
  draw(){const w=M.wei;weiDrawGate(w.gate,'비밀 문');weiMark(w.phase==='search'?w.gate.near:w.gate.far,w.phase==='search'?'숨은 장치':'비밀 통로','#d2a4ff');}
+};
+/* 14판 감녕: 어둠 속 횃불을 부수어 적을 혼란시킨다. */
+WEI_RULES[14]={
+ init(m){m.wei={torches:weiPoints(m,3).map(p=>({...p,broken:false})),confused:0};},
+ hit(rad){const w=M.wei;for(const t of w.torches)if(!t.broken&&weiNear(P,t,rad)){t.broken=true;w.confused=4;shots.length=0;debris(t.x,t.y,30,8);showBanner('횃불 파괴 · 적 혼란!',2);}},
+ tick(dt){const w=M.wei;w.confused=Math.max(0,w.confused-dt);if(w.torches.every(t=>t.broken))weiExit('야습 성공 · 길이 열렸다');},
+ mob(q,dt){if(M.wei.confused<=0||q.dead||q.boss)return false;q.wind=0;q.moving=false;q.hurt=Math.max(0,q.hurt-dt);return true;},
+ text(){return '야습 · 횃불 파괴 '+M.wei.torches.filter(t=>t.broken).length+'/3'+(M.wei.confused>0?' · 적 혼란':'');},
+ target(){return M.wei.torches.filter(t=>!t.broken).sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y))[0]||null;},
+ draw(){for(const t of M.wei.torches){weiMark(t,t.broken?'꺼진 횃불':'적 횃불',t.broken?'#808896':'#ffb56b');cx.strokeStyle='#8d6348';cx.lineWidth=8;cx.beginPath();cx.moveTo(t.x,t.y);cx.lineTo(t.x,t.y-70);cx.stroke();if(!t.broken)wuFlames({x:t.x,y:t.y-60},35);}},
+ overlay(){wuFog(300+M.wei.torches.filter(t=>t.broken).length*75,'2,5,16');}
 };
 
 function gimInit(m){
