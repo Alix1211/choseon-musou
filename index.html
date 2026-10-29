@@ -1498,7 +1498,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2400,6 +2400,14 @@ WEI_RULES[8]={
  text(){return M.wei.phase==='jar'?'수상한 항아리를 공격하라':'숨은 길 안쪽 표식으로 이동하라';},
  target(){const w=M.wei;return w.phase==='jar'?w.jar:w.gate.far;},
  draw(){const w=M.wei;weiDrawGate(w.gate,'숨은 벽');if(w.phase==='jar'){weiMark(w.jar,'수상한 항아리','#c0a6ff');cx.save();cx.fillStyle='#9e735b';cx.beginPath();cx.ellipse(w.jar.x,w.jar.y-32,30,35,0,0,Math.PI*2);cx.fill();cx.fillStyle='#d2aa7c';cx.fillRect(w.jar.x-20,w.jar.y-72,40,12);cx.restore();}else weiMark(w.gate.far,'비밀 통로','#c0a6ff');}
+};
+/* 9판 허창 진입: 막힌 정문을 피해 샛길로 들어가 안쪽 개폐기를 작동한다. */
+WEI_RULES[9]={
+ init(m){const gate=weiFindGate(m);m.wei={gate,lever:gate.far,progress:0};weiGateSet(gate,false);},
+ tick(dt){const w=M.wei;w.progress=weiNear(P,w.lever,90)?w.progress+dt:0;if(w.progress>=1.5){weiGateSet(w.gate,true);weiExit('안에서 정문을 열었다 · 성문 돌파');}},
+ text(){return '정문 봉쇄 · 샛길로 돌아 안쪽 개폐기를 작동하라';},
+ target(){return M.wei.lever;},
+ draw(){const w=M.wei;weiDrawGate(w.gate,'봉쇄된 정문');weiMark(w.lever,'안쪽 개폐기','#71dfce');cx.save();cx.fillStyle='#776b73';cx.fillRect(w.lever.x-25,w.lever.y-32,50,32);cx.strokeStyle='#bce8dc';cx.lineWidth=7;cx.beginPath();cx.moveTo(w.lever.x,w.lever.y-28);cx.lineTo(w.lever.x+18,w.lever.y-66);cx.stroke();cx.restore();}
 };
 
 function gimInit(m){
