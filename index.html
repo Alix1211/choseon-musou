@@ -713,7 +713,7 @@ function createMob(type,set,x,y,col,elite){
   return m;
 }
 const AUC={0:[90,160,255],1:[80,220,130],2:[255,105,85],y:[190,110,255]};   // 위 푸른색 · 촉 녹색 · 오 붉은색
-function auraOf(m){const L=m.col&&m.col.lead;if(!L||L.dead||m.boss)return 0;return Math.hypot(m.x-L.x,(m.y-L.y)/YR)<=L.aur?L.auk:0;}
+function auraOf(m){return 0;const L=m.col&&m.col.lead;if(!L||L.dead||m.boss)return 0;return Math.hypot(m.x-L.x,(m.y-L.y)/YR)<=L.aur?L.auk:0;}
 function spawnColony(room,idx,boss){
   const cx=(room.x+room.w/2)*TS,cy=(room.y+room.h/2)*TS,set=M.set;
   const col={idx,room,cx,cy,mobs:[],woken:false,cleared:false,boss};
@@ -746,6 +746,56 @@ function wakeColony(col){if(col.woken)return;col.woken=true;if(col.boss&&M.boss&
 function faceTo(dx,dy){return Math.abs(dx)>Math.abs(dy)*.9?(dx>0?'right':'left'):(dy>0?'down':'up');}
 function dirKey(f){return f==='down'?['front',false]:f==='up'?['back',false]:f==='left'?['side',true]:['side',false];}
 
+/* ───────── 벽에 걸리지 않기 : 시야가 막히면 길을 따라 돌아간다 ───────── */
+const FLOWNB=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+function losOpen(x0,y0,x1,y1,r){
+  const dx=x1-x0,dy=y1-y0,n=Math.ceil(Math.hypot(dx,dy)/20);
+  for(let i=1;i<n;i++){const k=i/n;if(blockedAt(x0+dx*k,y0+dy*k,r))return false;}
+  return true;
+}
+function flowUpdate(){
+  const g=M.D.g,H=g.length,W=g[0].length;
+  let f=M.flow;
+  if(!f||f.W!==W||f.H!==H)f=M.flow={W,H,d:new Int16Array(W*H),q:new Int32Array(W*H),px:-9,py:-9,t:-9};
+  const px=Math.floor(P.x/TS),py=Math.floor(P.y/TS);
+  if(px===f.px&&py===f.py&&time-f.t<.5&&time>=f.t)return f;
+  f.px=px;f.py=py;f.t=time;
+  const dd=f.d,q=f.q;dd.fill(-1);
+  if(px<0||py<0||px>=W||py>=H)return f;
+  let h=0,tl=0;dd[py*W+px]=0;q[tl++]=py*W+px;
+  while(h<tl){
+    const c=q[h++],ax=c%W,ay=(c/W)|0,nv=dd[c]+1;
+    for(let k=0;k<8;k++){
+      const ox=FLOWNB[k][0],oy=FLOWNB[k][1],nx=ax+ox,ny=ay+oy;
+      if(nx<0||ny<0||nx>=W||ny>=H)continue;
+      const ni=ny*W+nx;if(dd[ni]>=0||g[ny][nx]!==1)continue;
+      if(ox&&oy&&(g[ay][nx]!==1||g[ny][ax]!==1))continue;
+      dd[ni]=nv;q[tl++]=ni;
+    }
+  }
+  return f;
+}
+function chaseMove(m,tg,s,dt){
+  const dx=tg.x-m.x,dy=tg.y-m.y,d=Math.hypot(dx,dy)||1;
+  if(d<TS*1.4){moveEnt(m,dx/d*s,dy/d*s,16);return;}
+  m.losT=(m.losT||0)-dt;
+  if(m.losT<=0){m.losT=.18+Math.random()*.12;m.los=losOpen(m.x,m.y,tg.x,tg.y,15);}
+  if(m.los!==false){moveEnt(m,dx/d*s,dy/d*s,16);return;}
+  const f=flowUpdate(),W=f.W,H=f.H,g=M.D.g,tx=Math.floor(m.x/TS),ty=Math.floor(m.y/TS);
+  const here=(tx>=0&&ty>=0&&tx<W&&ty<H)?f.d[ty*W+tx]:-1;
+  if(here<0){moveEnt(m,dx/d*s,dy/d*s,16);return;}
+  let best=here,bx=-1,by=-1;
+  for(let k=0;k<8;k++){
+    const ox=FLOWNB[k][0],oy=FLOWNB[k][1],nx=tx+ox,ny=ty+oy;
+    if(nx<0||ny<0||nx>=W||ny>=H)continue;
+    const v=f.d[ny*W+nx];if(v<0||v>=best)continue;
+    if(ox&&oy&&(g[ty][nx]!==1||g[ny][tx]!==1))continue;
+    best=v;bx=nx;by=ny;
+  }
+  if(bx<0){moveEnt(m,dx/d*s,dy/d*s,16);return;}
+  const ex=(bx+.5)*TS-m.x,ey=(by+.5)*TS-m.y,el=Math.hypot(ex,ey)||1;
+  moveEnt(m,ex/el*s,ey/el*s,16);
+}
 function updateMob(m,dt){
   if(m.dead){m.deadT+=dt;return;}
   m.hurt=Math.max(0,m.hurt-dt);m.stun=Math.max(0,m.stun-dt);m.lunge=Math.max(0,m.lunge-dt*3);
@@ -779,10 +829,10 @@ function updateMob(m,dt){
   }
   if(t.shot){
     const want=d<t.keep-40?-1:d>t.keep+30?1:0;
-    if(want){const s=msp*dt*want;moveEnt(m,dx/d*s,dy/d*s,16);m.moving=true;}
+    if(want){const s=msp*dt*want;if(want>0)chaseMove(m,tg,s,dt);else moveEnt(m,dx/d*s,dy/d*s,16);m.moving=true;}
     if(m.cd<=0&&d<=t.range)m.wind=t.wind;
   }else{
-    if(d>t.reach*.9){const s=msp*dt;moveEnt(m,dx/d*s,dy/d*s,16);m.moving=true;}
+    if(d>t.reach*.9){const s=msp*dt;chaseMove(m,tg,s,dt);m.moving=true;}
     else if(m.cd<=0)m.wind=t.wind;
   }
 }
@@ -968,8 +1018,7 @@ function killMob(m){
   m.dead=true;m.deadT=0;S.kills++;if(P)P.nk=0;
   gainExp((m.beacon?5:m.boss?15:m.elite?5:1)*(1+.1*(S.stage-1)));
   if(m.beacon){onBeaconDead(m);return;}
-  if(m.leader){const c=AUC[m.set];fx.push({k:'shock',x:m.x,y:m.y,R:m.aur*.7,t:0,life:.5,small:true});pops.push({x:m.x,y:m.y-mobH(m)*1.15,t:0,txt:'군락 사기 꺾임',col:'rgb('+c.join(',')+')',size:20,vy:-30});}
-  if(m.captain)onCaptainDead(m);
+    if(m.captain)onCaptainDead(m);
   if(m.opener)onBeaconDead(m);
   if(m.guardL)onGuardDead(m);
   if(m.boss){S.fail=0;shake=Math.max(shake,14);showBanner('보스 격파 · '+MT[m.type].name,2.4);zones.length=0;shots.length=0;}
@@ -1403,7 +1452,7 @@ function mkColony(tx,ty,o){
     const L=createMob(pickWeighted([['spear',1],['cav',1]]),set,cx_,cy_,col,true);
     L.leader=true;col.lead=L;L.aur=o.captain?330:250;L.auk=o.captain?.4:.28;
     if(o.captain){L.captain=true;L.hp*=2.4;L.maxHp=L.hp;L.gold*=3;L.scale*=1.18;}
-    if(o.commander){L.opener=true;L.commander=true;L.hp*=3.2;L.maxHp=L.hp;L.gold*=3;L.scale*=1.22;L.aur=320;L.auk=.38;}
+    if(o.commander){L.opener=true;L.commander=true;L.hp*=3.2;L.maxHp=L.hp;L.gold*=3;L.scale*=1.22;L.auk=0;}
     col.mobs.push(L);
   }
   const n=o.n||6,types=[['spear',40],['bow',34],['cav',26]];
@@ -1909,7 +1958,7 @@ function mkCol(tx,ty,o){
     L.aur=o.captain?330:250;L.auk=o.captain?.4:.28;
     if(o.captain){L.captain=true;L.hp*=2.4;L.maxHp=L.hp;L.gold*=3;L.scale*=1.18;}
     if(o.guard){L.guardL=true;L.hp*=2.4;L.maxHp=L.hp;L.gold*=3;L.scale*=1.18;}
-    if(o.commander){L.opener=true;L.commander=true;L.hp*=3.2;L.maxHp=L.hp;L.gold*=3;L.scale*=1.22;L.aur=320;L.auk=.38;}
+    if(o.commander){L.opener=true;L.commander=true;L.hp*=3.2;L.maxHp=L.hp;L.gold*=3;L.scale*=1.22;L.auk=0;}
     col.mobs.push(L);
   }
   const n=o.n||6,types=yk?YOK:SOLD;
@@ -1933,6 +1982,8 @@ function clockHour(dx,dy){const a=Math.atan2(dx,-dy)/(Math.PI*2)*12;return ((Mat
 
 /* ───────── 칸 만들기 ───────── */
 const SETS=['0','1','2'];
+/* 스테이지가 곧 나라 : 1~10 위 · 11~20 오 · 21~30 촉 / 31 이후는 세 나라가 섞인다 */
+function stageSet(n){return n<=10?'0':n<=20?'2':n<=30?'1':null;}
 const parOf=n=>Math.round((n<=12?620:n===40?940:900)*.9);
 function buildMusou(cfg){
   cfg=cfg||{hero:[],kind:'other'};
@@ -1951,7 +2002,7 @@ function buildKan(run,idx,carry){
     const {W,H,g,tk,fl}=L,st=L.st,spt=nearWalk(g,st.cx,st.cy);
     const D={g,rooms:[{cx:spt[0],cy:spt[1],x:spt[0]-3,y:spt[1]-3,w:6,h:6}],start:{cx:spt[0],cy:spt[1]},far:null};
     D.far=D.start;
-    const m={kind:['field',theme,'성'],type:'field',theme,name:sp.nm,W,H,D,tk,fl,L,sty,carpet:['r','b','g'][(n+idx)%3],colonies:[],set:SETS[(n+idx)%3],musou:true,boss:null,bossType:null,gates:[],hero:null,heroes:[],beacon:null,captain:null,guard:null,
+    const m={kind:['field',theme,'성'],type:'field',theme,name:sp.nm,W,H,D,tk,fl,L,sty,carpet:['r','b','g'][(n+idx)%3],colonies:[],set:stageSet(n)||SETS[rint(0,2)],musou:true,boss:null,bossType:null,gates:[],hero:null,heroes:[],beacon:null,captain:null,guard:null,
       mis:'guard',doneT:0,focus:null,clock:carry?carry.clock:0,joined:run.joined,saved:run.saved,n,gim,cfgKind:cfg.kind,vents:[],chunks:new Map(),par:run.par,dlgQ:[],dlgDone:run.dlgDone,dl:run.dl,
       run,idx,sp,exit:null,blocks:[],chests:[],jars:[],k0:carry?carry.k0:0,replay:carry?carry.replay:false,ended:false,transT:0};
     M=m;mobs.length=0;shots.length=0;fx.length=0;pops.length=0;orbs.length=0;zones.length=0;wards.length=0;pks.length=0;
@@ -1972,7 +2023,7 @@ function buildKan(run,idx,carry){
     const tgt=TOT*wts[idx]/wsum-(sp.last?8:0);
     const ncol=L.rooms.filter(r=>r!==st&&!r.keep).length+L.rooms.filter(r=>r!==st&&!r.keep&&r.rx*r.ry>=26).length*.6;
     const per=clamp(Math.round(tgt/Math.max(1,ncol))-1,4,11),cn=()=>clamp(per+rint(-1,1),3,12);
-    const setFor=()=>Math.random()<yp?'y':set;
+    const mixed=!stageSet(n),setFor=()=>Math.random()<yp?'y':(mixed?SETS[rint(0,2)]:set);
     // 먼저 오프너(거점 병장) 방 : 시작 방에서 11시 방향에 가까운 막다른 방
     let opener=null;
     if(gim==='commander'){
@@ -1990,7 +2041,7 @@ function buildKan(run,idx,carry){
       if(r===st)continue;
       const cxp=Math.floor(r.cx)+.5,cyp=Math.floor(r.cy)+.5,w=nearWalk(g,cxp,cyp);
       if(r.keep)continue;
-      if(r===opener){const c0=mkCol(w[0]+.5,w[1]+.5,{n:9,leader:true,commander:true,set:'0'});m.beacon=c0.lead;continue;}
+      if(r===opener){const c0=mkCol(w[0]+.5,w[1]+.5,{n:9,leader:true,commander:true,set:set});m.beacon=c0.lead;continue;}
       if(r===L.exitRoom){
         if(sp.last){const c0=mkCol(w[0]+.5,w[1]+.5,{n:7,leader:true,captain:true,set:setFor()});m.captain=c0.lead;}
         else if(gim==='commander'&&opener){mkCol(w[0]+.5,w[1]+.5,{n:cn(),leader:true,set:setFor()});}
@@ -2037,7 +2088,7 @@ function kanIntro(m,run,sp,idx){
   showBanner((tot>1?(idx+1)+'/'+tot+'칸 · ':'')+sp.nm,1.8);
   if(idx>0)queueDlg('kan'+idx,1.5);
   if(m.gim&&idx===0){
-    const txt=m.gim==='commander'&&m.openHour?m.openHour+'시 방향 거점의 병장을 쓰러뜨려야 길이 열린다':run.cfg.gm;
+    const txt=m.gim==='commander'&&m.openHour?m.openHour+'시 방향 NPC 거점병장을 쓰러뜨려야 길이 열린다':run.cfg.gm;
     if(txt)setTimeout(()=>{if(M===m&&UI.mode==='battle'&&!M.trans)showBanner(txt,2.8);},2100);
   }
 }
@@ -2064,7 +2115,7 @@ function kanTag(){const t=M.run.specs.length;return t>1?'['+(M.idx+1)+'/'+t+'칸
 function misText(){
   const nm=M.heroes.length?heroNames():'',e=M.exit;
   const t={
-    cmd:(M.openHour||11)+'시 방향 거점 병장을 쓰러뜨려라',
+    cmd:(M.openHour||11)+'시 방향 NPC 거점병장을 쓰러뜨려라',
     guard:M.sp.last?'적 부장을 쓰러뜨려라':'수문장을 쓰러뜨려라',
     exit:e?'열린 '+EXG[e.art]+' 나아가라':'',
     inner:'내성문이 열렸다. 안으로 들어가라',
@@ -2446,7 +2497,7 @@ function hurtAlly(a,base,nx,ny,kb){
 }
 function allyGo(a,tx,ty,sp,dt,stop){
   const dx=tx-a.x,dy=ty-a.y,d=Math.hypot(dx,dy);if(d<=stop)return;
-  const s=sp*(a.spm||1)*(d>260?1.35:1)*dt;moveEnt(a,dx/d*s,dy/d*s,16);a.moving=true;a.face=faceTo(dx,dy);
+  const s=sp*(a.spm||1)*(d>260?1.35:1)*dt;if(Math.hypot(tx-P.x,ty-P.y)<90)chaseMove(a,{x:tx,y:ty},s,dt);else moveEnt(a,dx/d*s,dy/d*s,16);a.moving=true;a.face=faceTo(dx,dy);
 }
 function allyWarp(a){
   for(let i=0;i<16;i++){const an=i/16*Math.PI*2,x=P.x+Math.cos(an)*80,y=P.y+Math.sin(an)*70;
@@ -2823,7 +2874,7 @@ function drawMob(m){
   drawShadow(m.x,m.y,stl?44*m.scale:Math.min(r.w,r.h*.85)*sc*.3,7*m.scale,.28*alpha);
   if(!m.dead&&MT[m.type].vh&&MT[m.type]&&AUC[m.set]){
     const c=AUC[m.set].join(',');
-    if(m.leader){const p=.5+.5*Math.sin(time*3+m.seed),h=mobH(m);cx.save();
+    if(m.leader){}else if(false){const p=.5+.5*Math.sin(time*3+m.seed),h=mobH(m);cx.save();
       const g=cx.createRadialGradient(m.x,m.y-h*.5,h*.1,m.x,m.y-h*.5,h*.95);g.addColorStop(0,'rgba('+c+','+(.55+.2*p)+')');g.addColorStop(1,'rgba('+c+',0)');
       cx.fillStyle=g;cx.beginPath();cx.arc(m.x,m.y-h*.5,h*.95,0,7);cx.fill();cx.restore();}
     else if(m.au){cx.save();cx.translate(m.x,m.y);cx.scale(1,YR);const g=cx.createRadialGradient(0,0,0,0,0,52);g.addColorStop(0,'rgba('+c+',.4)');g.addColorStop(1,'rgba('+c+',0)');cx.fillStyle=g;cx.beginPath();cx.arc(0,0,52,0,7);cx.fill();cx.restore();}
@@ -2845,7 +2896,7 @@ function drawMob(m){
   if(m.boss&&!m.dead&&!m.down)drawBossAura(m);
   if(m.hero&&m.down)drawRescueMark(m);
   if(m.ally&&!m.dead)drawAllyTag(m);
-  if(m.commander&&!m.dead){cx.font='800 15px system-ui,sans-serif';cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=4;cx.strokeStyle='rgba(20,8,30,.9)';const ty=m.y-mobH(m)*m.scale*1.02-38;cx.strokeText('거점 병장',m.x,ty);cx.fillStyle='#ffd36b';cx.fillText('거점 병장',m.x,ty);}
+  if(m.commander&&!m.dead){cx.font='800 15px system-ui,sans-serif';cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=4;cx.strokeStyle='rgba(20,8,30,.9)';const ty=m.y-mobH(m)*m.scale*1.02-38;cx.strokeText('NPC 거점병장',m.x,ty);cx.fillStyle='#ffd36b';cx.fillText('NPC 거점병장',m.x,ty);}
   if(!m.dead&&!m.boss&&!m.ally&&(m.elite||m.hp<m.maxHp)){
     const w=m.elite?54:36,x=m.x-w/2,y=m.y-mobH(m)*m.scale*1.02-8;
     if(m.leader){const c=AUC[m.set].join(','),by=y-12+Math.sin(time*4+m.seed)*3;cx.fillStyle='rgb('+c+')';cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.moveTo(m.x-10,by-12);cx.lineTo(m.x+10,by-12);cx.lineTo(m.x,by+2);cx.closePath();cx.fill();cx.stroke();}
@@ -2906,7 +2957,7 @@ function drawDebris(){
     cx.restore();
   }
 }
-function drawLeaderAuras(x0,y0,vw,vh){
+function drawLeaderAuras(x0,y0,vw,vh){return;
   for(const m of mobs){
     if(!m.leader||m.dead||m.x<x0-m.aur||m.x>x0+vw+m.aur||m.y<y0-m.aur||m.y>y0+vh+m.aur)continue;
     const c=AUC[m.set].join(','),R=m.aur,p=.5+.5*Math.sin(time*2.2+m.seed);

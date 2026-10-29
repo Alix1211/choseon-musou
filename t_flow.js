@@ -3,7 +3,7 @@ const N=+process.argv[2]||3;
 (async()=>{
 const b=await chromium.launch();const pg=await b.newPage({viewport:{width:844,height:390}});
 const errs=[];pg.on('console',m=>{if(m.type()==='error'&&!/ERR_TUNNEL|fonts|Failed to load resource/.test(m.text()))errs.push(m.text())});pg.on('pageerror',e=>errs.push('PE '+e.message+' '+(e.stack||'').split('\n').slice(0,3).join('|')));
-await pg.goto('http://localhost:8766/index.html');
+await pg.goto('http://localhost:8766/'+(process.env.F||'index.html'));
 await pg.waitForFunction(()=>window.G&&window.G.UI&&window.G.UI.mode==='title',null,{timeout:60000});
 await pg.evaluate(n=>{G.S.cheat=1;G.startStage(n,1);},N);
 const skip=async()=>{for(let i=0;i<4;i++){if(await pg.evaluate(()=>G.UI.mode)==='dlg'){await pg.click('[data-a="dskip"]');await pg.waitForTimeout(350);}}};

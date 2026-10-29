@@ -236,7 +236,7 @@ function mkCol(tx,ty,o){
     L.aur=o.captain?330:250;L.auk=o.captain?.4:.28;
     if(o.captain){L.captain=true;L.hp*=2.4;L.maxHp=L.hp;L.gold*=3;L.scale*=1.18;}
     if(o.guard){L.guardL=true;L.hp*=2.4;L.maxHp=L.hp;L.gold*=3;L.scale*=1.18;}
-    if(o.commander){L.opener=true;L.commander=true;L.hp*=3.2;L.maxHp=L.hp;L.gold*=3;L.scale*=1.22;L.aur=320;L.auk=.38;}
+    if(o.commander){L.opener=true;L.commander=true;L.hp*=3.2;L.maxHp=L.hp;L.gold*=3;L.scale*=1.22;L.auk=0;}
     col.mobs.push(L);
   }
   const n=o.n||6,types=yk?YOK:SOLD;
@@ -260,6 +260,8 @@ function clockHour(dx,dy){const a=Math.atan2(dx,-dy)/(Math.PI*2)*12;return ((Mat
 
 /* ───────── 칸 만들기 ───────── */
 const SETS=['0','1','2'];
+/* 스테이지가 곧 나라 : 1~10 위 · 11~20 오 · 21~30 촉 / 31 이후는 세 나라가 섞인다 */
+function stageSet(n){return n<=10?'0':n<=20?'2':n<=30?'1':null;}
 const parOf=n=>Math.round((n<=12?620:n===40?940:900)*.9);
 function buildMusou(cfg){
   cfg=cfg||{hero:[],kind:'other'};
@@ -278,7 +280,7 @@ function buildKan(run,idx,carry){
     const {W,H,g,tk,fl}=L,st=L.st,spt=nearWalk(g,st.cx,st.cy);
     const D={g,rooms:[{cx:spt[0],cy:spt[1],x:spt[0]-3,y:spt[1]-3,w:6,h:6}],start:{cx:spt[0],cy:spt[1]},far:null};
     D.far=D.start;
-    const m={kind:['field',theme,'성'],type:'field',theme,name:sp.nm,W,H,D,tk,fl,L,sty,carpet:['r','b','g'][(n+idx)%3],colonies:[],set:SETS[(n+idx)%3],musou:true,boss:null,bossType:null,gates:[],hero:null,heroes:[],beacon:null,captain:null,guard:null,
+    const m={kind:['field',theme,'성'],type:'field',theme,name:sp.nm,W,H,D,tk,fl,L,sty,carpet:['r','b','g'][(n+idx)%3],colonies:[],set:stageSet(n)||SETS[rint(0,2)],musou:true,boss:null,bossType:null,gates:[],hero:null,heroes:[],beacon:null,captain:null,guard:null,
       mis:'guard',doneT:0,focus:null,clock:carry?carry.clock:0,joined:run.joined,saved:run.saved,n,gim,cfgKind:cfg.kind,vents:[],chunks:new Map(),par:run.par,dlgQ:[],dlgDone:run.dlgDone,dl:run.dl,
       run,idx,sp,exit:null,blocks:[],chests:[],jars:[],k0:carry?carry.k0:0,replay:carry?carry.replay:false,ended:false,transT:0};
     M=m;mobs.length=0;shots.length=0;fx.length=0;pops.length=0;orbs.length=0;zones.length=0;wards.length=0;pks.length=0;
@@ -299,7 +301,7 @@ function buildKan(run,idx,carry){
     const tgt=TOT*wts[idx]/wsum-(sp.last?8:0);
     const ncol=L.rooms.filter(r=>r!==st&&!r.keep).length+L.rooms.filter(r=>r!==st&&!r.keep&&r.rx*r.ry>=26).length*.6;
     const per=clamp(Math.round(tgt/Math.max(1,ncol))-1,4,11),cn=()=>clamp(per+rint(-1,1),3,12);
-    const setFor=()=>Math.random()<yp?'y':set;
+    const mixed=!stageSet(n),setFor=()=>Math.random()<yp?'y':(mixed?SETS[rint(0,2)]:set);
     // 먼저 오프너(거점 병장) 방 : 시작 방에서 11시 방향에 가까운 막다른 방
     let opener=null;
     if(gim==='commander'){
@@ -317,7 +319,7 @@ function buildKan(run,idx,carry){
       if(r===st)continue;
       const cxp=Math.floor(r.cx)+.5,cyp=Math.floor(r.cy)+.5,w=nearWalk(g,cxp,cyp);
       if(r.keep)continue;
-      if(r===opener){const c0=mkCol(w[0]+.5,w[1]+.5,{n:9,leader:true,commander:true,set:'0'});m.beacon=c0.lead;continue;}
+      if(r===opener){const c0=mkCol(w[0]+.5,w[1]+.5,{n:9,leader:true,commander:true,set:set});m.beacon=c0.lead;continue;}
       if(r===L.exitRoom){
         if(sp.last){const c0=mkCol(w[0]+.5,w[1]+.5,{n:7,leader:true,captain:true,set:setFor()});m.captain=c0.lead;}
         else if(gim==='commander'&&opener){mkCol(w[0]+.5,w[1]+.5,{n:cn(),leader:true,set:setFor()});}
@@ -364,7 +366,7 @@ function kanIntro(m,run,sp,idx){
   showBanner((tot>1?(idx+1)+'/'+tot+'칸 · ':'')+sp.nm,1.8);
   if(idx>0)queueDlg('kan'+idx,1.5);
   if(m.gim&&idx===0){
-    const txt=m.gim==='commander'&&m.openHour?m.openHour+'시 방향 거점의 병장을 쓰러뜨려야 길이 열린다':run.cfg.gm;
+    const txt=m.gim==='commander'&&m.openHour?m.openHour+'시 방향 NPC 거점병장을 쓰러뜨려야 길이 열린다':run.cfg.gm;
     if(txt)setTimeout(()=>{if(M===m&&UI.mode==='battle'&&!M.trans)showBanner(txt,2.8);},2100);
   }
 }

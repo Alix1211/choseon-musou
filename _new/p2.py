@@ -43,8 +43,8 @@ rep("for(let i=0;i<mobs.length;i++){const a=mobs[i];if(a.dead)continue;\n    for
 # 거점 병장
 rep("  if(m.captain)onCaptainDead(m);\n","  if(m.captain)onCaptainDead(m);\n  if(m.opener)onBeaconDead(m);\n")
 rep("if(o.captain){L.captain=true;L.hp*=2.4;L.maxHp=L.hp;L.gold*=3;L.scale*=1.18;}",
-    "if(o.captain){L.captain=true;L.hp*=2.4;L.maxHp=L.hp;L.gold*=3;L.scale*=1.18;}\n    if(o.commander){L.opener=true;L.commander=true;L.hp*=3.2;L.maxHp=L.hp;L.gold*=3;L.scale*=1.22;L.aur=320;L.auk=.38;}")
-rep("  if(m.ally&&!m.dead)drawAllyTag(m);\n","  if(m.ally&&!m.dead)drawAllyTag(m);\n  if(m.commander&&!m.dead){cx.font='800 15px system-ui,sans-serif';cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=4;cx.strokeStyle='rgba(20,8,30,.9)';const ty=m.y-mobH(m)*m.scale*1.02-38;cx.strokeText('거점 병장',m.x,ty);cx.fillStyle='#ffd36b';cx.fillText('거점 병장',m.x,ty);}\n")
+    "if(o.captain){L.captain=true;L.hp*=2.4;L.maxHp=L.hp;L.gold*=3;L.scale*=1.18;}\n    if(o.commander){L.opener=true;L.commander=true;L.hp*=3.2;L.maxHp=L.hp;L.gold*=3;L.scale*=1.22;L.auk=0;}")
+rep("  if(m.ally&&!m.dead)drawAllyTag(m);\n","  if(m.ally&&!m.dead)drawAllyTag(m);\n  if(m.commander&&!m.dead){cx.font='800 15px system-ui,sans-serif';cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=4;cx.strokeStyle='rgba(20,8,30,.9)';const ty=m.y-mobH(m)*m.scale*1.02-38;cx.strokeText('NPC 거점병장',m.x,ty);cx.fillStyle='#ffd36b';cx.fillText('NPC 거점병장',m.x,ty);}\n")
 
 # ── 3. 칸 시스템 : 지형 · 임무 · 미니맵 교체 ──
 a=src.index('function buildMusou(cfg){');b=src.index('/* ───────── 미션 ───────── */')
@@ -63,5 +63,6 @@ rep("playDlg,showResult};","playDlg,showResult,genKan,kanSpecs,buildKan,goNext,q
 exec(open(B+'_new/p2c.py',encoding='utf-8').read())
 exec(open(B+'_new/p2b.py',encoding='utf-8').read())
 if not os.environ.get('NOD'):exec(open(B+'_new/p2d.py',encoding='utf-8').read())
+if not os.environ.get('NOD'):exec(open(B+'_new/p2e.py',encoding='utf-8').read())
 open(B+'index.html','w',encoding='utf-8').write(src)
 print('ok',len(src))

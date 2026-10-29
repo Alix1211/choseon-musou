@@ -6,7 +6,7 @@ function kanTag(){const t=M.run.specs.length;return t>1?'['+(M.idx+1)+'/'+t+'칸
 function misText(){
   const nm=M.heroes.length?heroNames():'',e=M.exit;
   const t={
-    cmd:(M.openHour||11)+'시 방향 거점 병장을 쓰러뜨려라',
+    cmd:(M.openHour||11)+'시 방향 NPC 거점병장을 쓰러뜨려라',
     guard:M.sp.last?'적 부장을 쓰러뜨려라':'수문장을 쓰러뜨려라',
     exit:e?'열린 '+EXG[e.art]+' 나아가라':'',
     inner:'내성문이 열렸다. 안으로 들어가라',
