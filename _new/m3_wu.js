@@ -15,3 +15,4 @@ function wuBoatRoute(m){const st=m.D.start,g=m.D.g,W=m.W;let best=null;
 }
 function wuCanHit(q){if(!weiActive())return true;const r=WEI_RULES[M.n];return r.canHit?r.canHit(q):true;}
 function wuFog(radius,shade){const g=cx.createRadialGradient(P.x,P.y,60,P.x,P.y,radius);g.addColorStop(0,'rgba('+shade+',0)');g.addColorStop(.6,'rgba('+shade+',.18)');g.addColorStop(1,'rgba('+shade+',.94)');cx.save();cx.fillStyle=g;cx.fillRect(0,0,M.W*TS,M.H*TS);cx.restore();}
+function wuFail(msg){const w=M.wei;if(w.failed)return;w.failed=true;M.ended=true;stopInput();P.mode='dead';P.tt=0;P.atk=null;P.sk=null;P.state='idle';S.deaths++;shots.length=zones.length=wards.length=0;showBanner(msg+' · 다시 도전',2);}

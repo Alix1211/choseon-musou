@@ -6,7 +6,7 @@ function weiTick(dt){if(!weiActive()||M.ended||M.trans||UI.mode!=='battle'||UI.p
 function weiHit(rad){if(weiActive()&&UI.mode==='battle'&&!UI.paused&&['manual','hunt'].includes(P.mode)){const r=WEI_RULES[M.n];if(r.hit)r.hit(rad||120);}}
 function weiText(){return WEI_RULES[M.n].text();}
 function weiTarget(){return WEI_RULES[M.n].target();}
-function weiDraw(){if(weiActive())WEI_RULES[M.n].draw();}
+function weiDraw(){if(M&&M.wei&&(weiActive()||WEI_RULES[M.n].persistent))WEI_RULES[M.n].draw();}
 function weiNear(a,b,r){return Math.hypot(a.x-b.x,(a.y-b.y)/YR)<=r;}
 function weiExit(msg){M.mis='exit';openExit();showBanner(msg,2.4);}
 function weiPoints(m,count){
