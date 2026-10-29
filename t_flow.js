@@ -12,12 +12,23 @@ const tot=await pg.evaluate(()=>G.M.run.specs.length);
 for(let k=0;k<tot;k++){
   await pg.waitForTimeout(1200);await skip();
   console.log('kan',k,JSON.stringify(await st()));
+  if(await pg.evaluate(()=>G.M.mis==='towers')){
+    // 감시탑은 실제 공격으로 지휘병을 제압하고, 각 탑에서 점령한다.
+    for(let i=0;i<2;i++){
+      await pg.evaluate(i=>{const q=G.M.towers.list[i],g=q.lead;G.P.hp=1e8;G.P.x=q.x-60;G.P.y=q.y;g.hp=1;g.x=q.x;g.y=q.y;g.col.woken=true;G.setAtk(true);},i);
+      await pg.waitForFunction(i=>G.M.towers.list[i].lead.dead,i,{timeout:15000});
+      await pg.evaluate(i=>{G.setAtk(false);const q=G.M.towers.list[i];G.P.x=q.x;G.P.y=q.y;},i);
+      await pg.waitForFunction(i=>G.M.towers.list[i].captured,i,{timeout:10000});
+    }
+  }else{
   // 우두머리/부장 쓰러뜨리기
   await pg.evaluate(()=>{const m=G.M,g=m.beacon||m.guard||m.captain;g.hp=1;G.P.x=g.x-90;G.P.y=g.y+10;G.cam.x=G.P.x;G.cam.y=G.P.y;for(const a of G.allies){a.x=G.P.x;a.y=G.P.y+30;}});
   await pg.waitForTimeout(250);
   await pg.evaluate(()=>{const m=G.M,g=m.beacon||m.guard||m.captain;g.x=G.P.x+60;g.y=G.P.y;G.setAtk(true);});
   for(let w=0;w<40;w++){const m=await pg.evaluate(()=>{const g=G.M.beacon||G.M.guard||G.M.captain;if(g&&!g.dead&&G.P.mode!=='dead'){g.x=G.P.x+60;g.y=G.P.y;}return G.M.mis;});if(m!=='cmd'&&m!=='guard')break;await pg.waitForTimeout(300);}await pg.evaluate(()=>G.setAtk(false));
   console.log(' after kill',JSON.stringify(await st()));
+  }
+  if(k<tot-1&&!(await pg.evaluate(()=>G.M.exit.open)))throw new Error('출구가 열리지 않음: '+k);
   if(k<tot-1){
     await pg.evaluate(()=>{const e=G.M.exit;G.P.x=e.x1*48;G.P.y=(e.y+1.2)*48;});
     await pg.waitForTimeout(1500);
@@ -26,6 +37,7 @@ for(let k=0;k<tot;k++){
     await pg.evaluate(()=>{G.keys.up=1;});await pg.waitForTimeout(900);await pg.evaluate(()=>{G.keys.up=0;});
     await pg.waitForTimeout(1500);
     console.log(' moved',JSON.stringify(await st()));
+    if((await pg.evaluate(()=>G.M.idx))!==k+1)throw new Error('다음 칸으로 이동 실패: '+k);
   }
 }
 // 마지막 칸: 내성문 → 내성
