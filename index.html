@@ -1500,7 +1500,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13',14:'wu14',15:'wu15'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13',14:'wu14',15:'wu15',16:'wu16'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2484,6 +2484,14 @@ WEI_RULES[15]={
  target(){return M.wei.stones[M.wei.index]||null;},
  draw(){const w=M.wei;for(const g of w.gates)weiDrawGate(g,'돌벽');for(let i=0;i<w.stones.length;i++){const p=w.stones[i];weiMark(p,'팔진석 '+(i+1),i<w.index?'#81dfc1':'#b7c6ff');cx.fillStyle='#727d98';cx.fillRect(p.x-25,p.y-70,50,65);cx.strokeStyle='#b7c6ff';cx.lineWidth=4;cx.strokeRect(p.x-25,p.y-70,50,65);}},
  overlay(){wuFog(280,'75,86,108');}
+};
+/* 16판 대교: 세 발판에 1초씩 서서 문을 연다. 순서는 자유. */
+WEI_RULES[16]={
+ init(m){m.wei={switches:weiPoints(m,3).map((p,i)=>({...p,id:i+1,on:false,progress:0}))};},
+ tick(dt){const ss=M.wei.switches;for(const s of ss)if(!s.on){s.progress=weiNear(P,s,80)?s.progress+dt:0;if(s.progress>=1){s.on=true;showBanner('발판 '+s.id+' 작동',1.5);}}if(ss.every(s=>s.on))weiExit('세 발판 작동 · 문이 열렸다');},
+ text(){return '발판 작동 '+M.wei.switches.filter(s=>s.on).length+'/3 · 발판 위에 머물러라';},
+ target(){return M.wei.switches.filter(s=>!s.on).sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y))[0]||null;},
+ draw(){for(const s of M.wei.switches){weiMark(s,'발판 '+s.id+(s.on?' · 작동':''),s.on?'#74dfb8':'#a5b6ff',80);cx.save();cx.fillStyle=s.on?'#579b81':'#605c83';cx.fillRect(s.x-35,s.y-20,70,40);cx.strokeStyle=s.on?'#a8ffd7':'#d2c7ff';cx.lineWidth=4;cx.strokeRect(s.x-35,s.y-20,70,40);cx.restore();}}
 };
 
 function gimInit(m){
