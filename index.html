@@ -1500,7 +1500,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13',14:'wu14',15:'wu15',16:'wu16',17:'wu17'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13',14:'wu14',15:'wu15',16:'wu16',17:'wu17',18:'wu18'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2503,6 +2503,8 @@ WEI_RULES[17]={
  target(){return M.wei.chains.find(c=>!c.broken)||M.wei.chains[0];},
  draw(){for(const c of M.wei.chains){weiMark(c,c.broken?'끊어진 쇠사슬':'쇠사슬 연결부',c.broken?'#818c9c':'#b9c8e9');cx.save();cx.strokeStyle=c.broken?'#586272':'#aebad0';cx.lineWidth=7;for(let i=0;i<5;i++){if(c.broken&&i===2)continue;cx.beginPath();cx.ellipse(c.x+(i-2)*22,c.y-25,18,10,0,0,Math.PI*2);cx.stroke();}cx.restore();}const p=M.wei.chains[0];weiMark({x:p.x,y:p.y-150},M.wei.left?'동남풍 대기':'동남풍','#9be6cc');}
 };
+/* 18판 손상향: 케인이 선택한 접근 → 추격 유도 → 포획진 방식. */
+WEI_RULES[18]={...WEI_RULES[6]};
 
 function gimInit(m){
   if(weiInit(m))return;
