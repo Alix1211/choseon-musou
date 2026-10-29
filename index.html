@@ -1500,7 +1500,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12',13:'wu13'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2455,6 +2455,14 @@ WEI_RULES[12]={
  text(){return M.wei.phase==='approach'?'결투장에 들어가라':'일기토 · NPC 결투장을 제압하라';},
  target(){return M.wei.lead;},
  draw(){weiMark(M.wei.point,'일기토','#ffd36b',240);weiMark(M.wei.lead,'NPC 결투장','#ff9b70');}
+};
+/* 13판 소교: 벽의 숨은 장치를 찾아 비밀 통로를 연다. */
+WEI_RULES[13]={
+ init(m){const gate=weiFindGate(m);m.wei={gate,phase:'search',progress:0};weiGateSet(gate,false);},
+ tick(dt){const w=M.wei;if(w.phase==='search'){w.progress=weiNear(P,w.gate.near,100)?w.progress+dt:0;if(w.progress>=1.5){w.phase='passage';weiGateSet(w.gate,true);showBanner('숨은 장치 발견 · 비밀 문 개방',2.4);}}else if(weiNear(P,w.gate.far,100))weiExit('비밀 통로 돌파 · 출구 개방');},
+ text(){return M.wei.phase==='search'?'수상한 벽 가까이에서 숨은 장치를 찾아라':'비밀 통로 안쪽 표식으로 이동하라';},
+ target(){const w=M.wei;return w.phase==='search'?w.gate.near:w.gate.far;},
+ draw(){const w=M.wei;weiDrawGate(w.gate,'비밀 문');weiMark(w.phase==='search'?w.gate.near:w.gate.far,w.phase==='search'?'숨은 장치':'비밀 통로','#d2a4ff');}
 };
 
 function gimInit(m){
