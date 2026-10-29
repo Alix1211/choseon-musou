@@ -5,7 +5,7 @@ const b=await chromium.launch();const pg=await b.newPage({viewport:{width:844,he
 const errs=[];pg.on('console',m=>{if(m.type()==='error'&&!/ERR_TUNNEL|fonts|Failed to load resource/.test(m.text()))errs.push(m.text())});pg.on('pageerror',e=>errs.push('PE '+e.message+' '+(e.stack||'').split('\n').slice(0,3).join('|')));
 await pg.goto('http://localhost:8766/'+(process.env.F||'index.html'));
 await pg.waitForFunction(()=>window.G&&window.G.UI&&window.G.UI.mode==='title',null,{timeout:60000});
-await pg.evaluate(n=>{G.S.cheat=1;G.startStage(n,1);},N);
+await pg.evaluate(n=>{G.S.cheat=1;G.startStage(n,1);G.P.hp=1e8;},N);
 const skip=async()=>{for(let i=0;i<4;i++){if(await pg.evaluate(()=>G.UI.mode)==='dlg'){await pg.click('[data-a="dskip"]');await pg.waitForTimeout(350);}}};
 const st=()=>pg.evaluate(()=>({k:G.M.idx,mis:G.M.mis,mode:G.UI.mode,pm:G.P.mode,ex:G.M.exit&&G.M.exit.open,gate:G.M.gates[0]&&G.M.gates[0].open,mobs:G.mobs.length}));
 const tot=await pg.evaluate(()=>G.M.run.specs.length);
@@ -13,6 +13,9 @@ for(let k=0;k<tot;k++){
   await pg.waitForTimeout(1200);await skip();
   await pg.waitForFunction(()=>G.UI.mode==='battle'&&G.P.mode==='manual',null,{timeout:15000});
   console.log('kan',k,JSON.stringify(await st()));
+  if(await pg.evaluate(()=>G.M.mis==='wei11')){
+    await pg.evaluate(()=>{const w=G.M.wei;G.P.x=w.launch.x;G.P.y=w.launch.y;G.breakJars(120);for(let i=0;i<1000&&G.M.mis==='wei11';i++)G.weiTick(1);});
+  }
   if(await pg.evaluate(()=>G.M.mis==='wei10')){
     await pg.evaluate(()=>{G.P.hp=1e8;const w=G.M.wei;while(w.index<3){const cs=w.groups[w.index];G.P.x=cs[0].cx;G.P.y=cs[0].cy;G.weiTick(.1);for(const c of cs)for(const q of [...c.mobs])if(!q.dead)G.killMob(q);G.weiTick(.1);}});
   }
