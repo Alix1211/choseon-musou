@@ -1497,7 +1497,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',5:'defend05'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2138,6 +2138,7 @@ const EXOPEN={gate:'성문이',door:'문이',down:'지하 계단이',up:'위층 
 function heroNames(){return M.heroes.map(h=>MT[h.type].name).join(' · ');}
 function kanTag(){const t=M.run.specs.length;return t>1?'['+(M.idx+1)+'/'+t+'칸] ':'';}
 function misText(){
+  if(weiActive())return kanTag()+weiText();
   if(M.mis==='defend05')return kanTag()+gim05Text();
   if(M.mis==='towers')return kanTag()+gimText();
   const nm=M.heroes.length?heroNames():'',e=M.exit;
@@ -2153,6 +2154,7 @@ function misText(){
 }
 function nearestHero(){let b=null,bd=1e9;for(const h of M.heroes){const d=Math.hypot(h.x-P.x,h.y-P.y);if(d<bd){bd=d;b=h;}}return b;}
 function misTarget(){
+  if(weiActive())return weiTarget();
   switch(M.mis){
     case 'defend05':return {x:M.defense05.x,y:M.defense05.y};
     case 'towers':return gimTarget();
@@ -2317,7 +2319,38 @@ function drawGim05(){
   cx.strokeText('성문 방어',d.x,d.y-130);cx.fillText('성문 방어',d.x,d.y-130);cx.restore();
 }
 
+/* 위나라 추가 규칙. 나라·능력치·기존 맵·원고는 그대로 사용한다. */
+const WEI_RULES={};
+function weiActive(){return M&&M.wei&&M.mis==='wei'+M.n;}
+function weiInit(m){const r=WEI_RULES[m.n];if(!r||!m.gim||!m.gim.startsWith('wei'))return false;m.wei={};m.mis='wei'+m.n;r.init(m);return true;}
+function weiTick(dt){if(!weiActive()||M.ended||M.trans||UI.mode!=='battle'||UI.paused||!['manual','hunt'].includes(P.mode))return false;WEI_RULES[M.n].tick(dt);return false;}
+function weiHit(rad){if(weiActive()&&UI.mode==='battle'&&!UI.paused&&['manual','hunt'].includes(P.mode)){const r=WEI_RULES[M.n];if(r.hit)r.hit(rad||120);}}
+function weiText(){return WEI_RULES[M.n].text();}
+function weiTarget(){return WEI_RULES[M.n].target();}
+function weiDraw(){if(weiActive())WEI_RULES[M.n].draw();}
+function weiNear(a,b,r){return Math.hypot(a.x-b.x,(a.y-b.y)/YR)<=r;}
+function weiExit(msg){M.mis='exit';openExit();showBanner(msg,2.4);}
+function weiPoints(m,count){
+ const st={x:P.x,y:P.y},rs=m.L.rooms.filter(r=>r!==m.L.st&&!r.keep&&r!==m.L.exitRoom);
+ rs.sort((a,b)=>(m.L.adj[a.idx].length===1?-10000:0)-(m.L.adj[b.idx].length===1?-10000:0)+Math.hypot(b.cx*TS-st.x,b.cy*TS-st.y)-Math.hypot(a.cx*TS-st.x,a.cy*TS-st.y));
+ const pts=[];for(const r of rs){const cs=m.colonies.filter(c=>!c.hold&&m.L.inRoom(r,c.cx/TS,c.cy/TS));for(const c of cs){if(blockedAt(c.cx,c.cy,18)||pts.some(p=>Math.hypot(p.x-c.cx,p.y-c.cy)<240))continue;pts.push({x:c.cx,y:c.cy,col:c});break;}if(pts.length===count)break;}
+ if(pts.length!==count)throw new Error(m.n+'판 목표 배치 실패');return pts;
+}
+function weiMark(p,label,color,r){
+ cx.save();cx.strokeStyle=color||'#ffd36b';cx.fillStyle=color||'#ffd36b';cx.lineWidth=3;cx.beginPath();cx.ellipse(p.x,p.y,r||65,(r||65)*YR,0,0,Math.PI*2);cx.stroke();cx.font='bold 18px system-ui,sans-serif';cx.textAlign='center';cx.lineWidth=5;cx.strokeStyle='#201426';cx.strokeText(label,p.x,p.y-100);cx.fillText(label,p.x,p.y-100);cx.restore();
+}
+/* 4판 허저: 막다른 보급창 두 곳에 공격으로 불을 붙인다. */
+WEI_RULES[4]={
+ init(m){m.wei.depots=weiPoints(m,2).map(p=>({...p,burning:0,burnt:false}));},
+ hit(rad){for(const d of M.wei.depots)if(!d.burnt&&!d.burning&&weiNear(P,d,rad)){d.burning=3;showBanner('보급창에 불이 붙었다',1.5);}},
+ tick(dt){const ds=M.wei.depots;for(const d of ds)if(d.burning){d.burning=Math.max(0,d.burning-dt);if(!d.burning)d.burnt=true;}if(ds.every(d=>d.burnt))weiExit('보급창 소각 · 적 사기가 꺾였다');},
+ text(){return '보급창 소각 '+M.wei.depots.filter(d=>d.burnt).length+'/2 · 창고를 공격하라';},
+ target(){return M.wei.depots.find(d=>!d.burnt)||null;},
+ draw(){for(const d of M.wei.depots){weiMark(d,d.burnt?'잿더미':d.burning?'불타는 보급창':'보급창',d.burnt?'#999':'#ffb268');cx.save();cx.fillStyle=d.burnt?'#453a38':'#916034';cx.fillRect(d.x-45,d.y-65,90,60);cx.strokeStyle='#d5ab69';cx.lineWidth=4;cx.strokeRect(d.x-45,d.y-65,90,60);if(d.burning){cx.fillStyle='#ff8e38';for(let i=0;i<5;i++){cx.beginPath();cx.moveTo(d.x-48+i*20,d.y-25);cx.lineTo(d.x-38+i*20,d.y-100-Math.sin(time*8+i)*20);cx.lineTo(d.x-22+i*20,d.y-25);cx.fill();}}cx.restore();}}
+};
+
 function gimInit(m){
+  if(weiInit(m))return;
   if(m.gim==='defend05'){gim05Init(m);return;}
   if(m.gim!=='towers')return;
   const start={x:(m.D.start.cx+.5)*TS,y:(m.D.start.cy+.5)*TS};
@@ -2344,6 +2377,7 @@ function gimTarget(){
   return t.lead.dead?{x:t.x,y:t.y}:{x:t.lead.x,y:t.lead.y,ent:t.lead};
 }
 function gimTick(dt){
+  weiTick(dt);
   gim05Tick(dt);
   const m=M,t=m.towers;
   if(!t)return false;
@@ -2369,6 +2403,7 @@ function gimTick(dt){
   return false;
 }
 function drawGimmicks(){
+  weiDraw();
   drawGim05();
   if(!M.towers)return;
   for(const q of M.towers.list){
@@ -2550,6 +2585,7 @@ function eatFood(k){
   fxTeleport(P.x,P.y);
 }
 function breakJars(rad){
+  weiHit(rad);
   rad=rad||120;if(!M||!M.jarList)return;
   for(const p of M.jarList){
     if(p.dead)continue;
@@ -3868,7 +3904,7 @@ addEventListener('visibilitychange',save);
     cutDefLoad();
     showScreen('title');
     $('load').remove();
-    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx}};
+    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx}};
     requestAnimationFrame(loop);
   }catch(e){$('load').textContent='오류: '+e.message;console.error(e);}
 })();

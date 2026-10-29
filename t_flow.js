@@ -13,6 +13,9 @@ for(let k=0;k<tot;k++){
   await pg.waitForTimeout(1200);await skip();
   await pg.waitForFunction(()=>G.UI.mode==='battle'&&G.P.mode==='manual',null,{timeout:15000});
   console.log('kan',k,JSON.stringify(await st()));
+  if(await pg.evaluate(()=>G.M.mis==='wei4')){
+    await pg.evaluate(()=>{G.P.hp=1e8;for(const d of G.M.wei.depots){G.P.x=d.x;G.P.y=d.y;G.breakJars(120);}G.weiTick(3);});
+  }
   if(await pg.evaluate(()=>G.M.mis==='defend05')){
     // 60초를 실시간 대기하지 않고 방어 조건·증원·역습 연결을 확인한다.
     await pg.evaluate(()=>{const d=G.M.defense05;G.P.hp=1e8;G.P.x=d.x;G.P.y=d.y;for(let i=0;i<60;i++)G.gimTick(1);});
@@ -26,7 +29,7 @@ for(let k=0;k<tot;k++){
       await pg.evaluate(i=>{G.setAtk(false);const q=G.M.towers.list[i];G.P.x=q.x;G.P.y=q.y;},i);
       await pg.waitForFunction(i=>G.M.towers.list[i].captured,i,{timeout:10000});
     }
-  }else{
+  }else if(await pg.evaluate(()=>['cmd','guard'].includes(G.M.mis))){
   // 우두머리/부장 쓰러뜨리기
   await pg.evaluate(()=>{const m=G.M,g=m.beacon||m.guard||m.captain;g.hp=1;G.P.x=g.x-90;G.P.y=g.y+10;G.cam.x=G.P.x;G.cam.y=G.P.y;for(const a of G.allies){a.x=G.P.x;a.y=G.P.y+30;}});
   await pg.waitForTimeout(250);
