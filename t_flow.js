@@ -12,7 +12,11 @@ const tot=await pg.evaluate(()=>G.M.run.specs.length);
 for(let k=0;k<tot;k++){
   await pg.waitForTimeout(1200);await skip();
   await pg.waitForFunction(()=>G.UI.mode==='battle'&&G.P.mode==='manual',null,{timeout:15000});
+  await pg.evaluate(()=>G.P.hp=1e8);
   console.log('kan',k,JSON.stringify(await st()));
+  if(await pg.evaluate(()=>G.M.mis==='wei12')){
+    await pg.evaluate(()=>{const w=G.M.wei;G.P.x=w.point.x;G.P.y=w.point.y;G.weiTick(.1);w.lead.hp=1;G.hitMob(w.lead,10000,'sword',0,0);G.weiTick(.1);});
+  }
   if(await pg.evaluate(()=>G.M.mis==='wei11')){
     await pg.evaluate(()=>{const w=G.M.wei;G.P.x=w.launch.x;G.P.y=w.launch.y;G.breakJars(120);for(let i=0;i<1000&&G.M.mis==='wei11';i++)G.weiTick(1);});
   }
@@ -68,7 +72,7 @@ for(let k=0;k<tot;k++){
   }
 }
 // 마지막 칸: 내성문 → 내성
-await pg.evaluate(()=>{const m=G.M,kp=m.L.keep;G.P.x=(kp.cx)*48;G.P.y=(kp.cy+1)*48;G.cam.x=G.P.x;G.cam.y=G.P.y;});
+await pg.evaluate(()=>{const m=G.M,kp=m.L.keep;G.P.hp=1e8;G.P.x=(kp.cx)*48;G.P.y=(kp.cy+1)*48;G.cam.x=G.P.x;G.cam.y=G.P.y;});
 await pg.waitForTimeout(1500);console.log(' keep',JSON.stringify(await st()));await skip();
 await pg.screenshot({path:'/tmp/flow_keep.png'});
 console.log(' heroes',JSON.stringify(await pg.evaluate(()=>({h:G.M.heroes.length,hero:!!G.M.hero,mis:G.M.mis,kind:G.M.cfgKind}))));

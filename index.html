@@ -820,7 +820,7 @@ function chaseMove(m,tg,s,dt){
   moveEnt(m,ex/el*s,ey/el*s,16);
 }
 function updateMob(m,dt){
-  if(weiMob(m,dt))return;
+  if(m.wuHidden||weiMob(m,dt))return;
   if(m.dead){m.deadT+=dt;return;}
   m.hurt=Math.max(0,m.hurt-dt);m.stun=Math.max(0,m.stun-dt);m.lunge=Math.max(0,m.lunge-dt*3);
   if(m.static){m.au=0;return;}
@@ -1027,6 +1027,7 @@ function dmgNum(base){
   return [v,crit];
 }
 function hitMob(m,base,w,kb,ang,tag){
+  if(m.wuHidden||!wuCanHit(m))return;
   if(m.col&&m.col.weiHidden)return;
   if(m.dead||m.down)return;
   if(P)P.idleT=0;
@@ -1499,7 +1500,7 @@ function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a
 function hash2(x,y,s){let h=Math.imul((x*374761393+y*668265263+(s|0)*2246822519)|0,1274126177);h^=h>>>13;h=Math.imul(h,1597334677);return((h^h>>>16)>>>0)/4294967296;}
 const THEME_OF=[null,'spring','summer','swamp','autumn','autumn','spring','ice','summer','autumn','spring','volcano','summer','spring','autumn','volcano','winter','ice','swamp','summer','autumn','spring','summer','volcano','autumn','spring','summer','spring','winter','summer','autumn','volcano','summer','spring','swamp','autumn','winter','volcano','volcano','swamp','volcano'];
 const CHT=8,VP=5.4;
-const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11'};
+const GIM_OF={1:'commander',2:'towers',3:'vents',4:'wei04',5:'defend05',6:'wei06',7:'wei07',8:'wei08',9:'wei09',10:'wei10',11:'wu11',12:'wu12'};
 const SZ={s:{W:42,H:38,rn:9},m:{W:54,H:48,rn:12},l:{W:62,H:54,rn:14}};
 /* tk : 0 막힘 · 1 바닥 · 3 카펫 · 4 진영 흙 · 5 못/용암(막힘) · 6 길 */
 function genKan(n,sp){
@@ -2436,6 +2437,7 @@ function wuBoatRoute(m){const st=m.D.start,g=m.D.g,W=m.W;let best=null;
  for(const p of path){const x=Math.floor(p.x/TS),y=Math.floor(p.y/TS);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(g[y+dy]&&g[y+dy][x+dx]!==1)m.tk[(y+dy)*W+x+dx]=5;}
  m.props=m.props.filter(p=>m.tk[Math.floor(p.y/TS)*W+Math.floor(p.x/TS)]!==5);m.theme='summer';m.chunks.clear();return {launch:best.launch,camp:dest.camp,path};
 }
+function wuCanHit(q){if(!weiActive())return true;const r=WEI_RULES[M.n];return r.canHit?r.canHit(q):true;}
 /* 11판 황개: 물길의 불배 점화 → 적진 충돌 → 화공 성공. */
 WEI_RULES[11]={
  init(m){const r=wuBoatRoute(m);m.wei={...r,boat:{...r.path[0]},index:1,phase:'launch',burn:0};},
@@ -2444,6 +2446,15 @@ WEI_RULES[11]={
  text(){const w=M.wei;return w.phase==='launch'?'물가의 불배를 공격해 점화하라':w.phase==='sail'?'불배가 적진으로 돌진 중':'적진 화공 중';},
  target(){const w=M.wei;return w.phase==='launch'?w.launch:w.camp;},
  draw(){const w=M.wei;weiMark(w.launch,'불배 진수장','#ffbf73');weiMark(w.camp,'적진','#ff866a');cx.save();cx.fillStyle='#83542f';cx.beginPath();cx.moveTo(w.boat.x,w.boat.y-50);cx.lineTo(w.boat.x+28,w.boat.y-20);cx.lineTo(w.boat.x+22,w.boat.y+40);cx.lineTo(w.boat.x-22,w.boat.y+40);cx.lineTo(w.boat.x-28,w.boat.y-20);cx.closePath();cx.fill();cx.strokeStyle='#d8ab65';cx.lineWidth=4;cx.stroke();cx.fillStyle='#e9c796';cx.fillRect(w.boat.x-3,w.boat.y-80,6,100);cx.beginPath();cx.moveTo(w.boat.x,w.boat.y-76);cx.lineTo(w.boat.x+42,w.boat.y-36);cx.lineTo(w.boat.x,w.boat.y-20);cx.fill();cx.restore();if(w.phase!=='launch')wuFlames(w.boat,70);if(w.phase==='burn')wuFlames(w.camp,130);}
+};
+/* 12판 태사자: 동료/잡병이 끼어들지 않는 일기토. */
+WEI_RULES[12]={
+ init(m){const g=m.guard;if(!g)throw new Error('12판 결투 상대 없음');const cols=m.colonies.filter(c=>!c.hold),others=mobs.filter(q=>q!==g&&!q.col.hold);for(const c of cols)c.hold=true;for(const q of others)q.wuHidden=true;m.wei={lead:g,point:{x:g.hx,y:g.hy},cols,others,allies:allies.splice(0),phase:'approach'};},
+ tick(){const w=M.wei;if(w.phase==='approach'&&weiNear(P,w.point,240)){w.phase='duel';w.lead.col.hold=false;wakeColony(w.lead.col);showBanner('일기토 · 1대1 승부!',2.4);}if(w.phase==='duel'&&w.lead.dead){for(const c of w.cols)c.hold=false;for(const q of w.others)q.wuHidden=false;for(const a of w.allies){a.x=P.x;a.y=P.y+70;allies.push(a);}w.allies=[];weiExit('일기토 승리 · 문이 열렸다');}},
+ canHit(q){return q!==M.wei.lead||M.wei.phase==='duel';},
+ text(){return M.wei.phase==='approach'?'결투장에 들어가라':'일기토 · NPC 결투장을 제압하라';},
+ target(){return M.wei.lead;},
+ draw(){weiMark(M.wei.point,'일기토','#ffd36b',240);weiMark(M.wei.lead,'NPC 결투장','#ff9b70');}
 };
 
 function gimInit(m){
@@ -3142,6 +3153,7 @@ function drawStill(m,bx,by,sx,sy,alpha){
   cx.restore();cx.globalAlpha=1;
 }
 function drawMob(m){
+  if(m.wuHidden)return;
   if(m.col&&m.col.weiHidden)return;
   if(m.beacon){drawBeacon(m);return;}
   const stl=!!MT[m.type].still;

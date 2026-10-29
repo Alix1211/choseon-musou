@@ -13,3 +13,4 @@ function wuBoatRoute(m){const st=m.D.start,g=m.D.g,W=m.W;let best=null;
  for(const p of path){const x=Math.floor(p.x/TS),y=Math.floor(p.y/TS);for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(g[y+dy]&&g[y+dy][x+dx]!==1)m.tk[(y+dy)*W+x+dx]=5;}
  m.props=m.props.filter(p=>m.tk[Math.floor(p.y/TS)*W+Math.floor(p.x/TS)]!==5);m.theme='summer';m.chunks.clear();return {launch:best.launch,camp:dest.camp,path};
 }
+function wuCanHit(q){if(!weiActive())return true;const r=WEI_RULES[M.n];return r.canHit?r.canHit(q):true;}
