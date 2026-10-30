@@ -3721,8 +3721,12 @@ function comboBegin(entry,n,inp){
   P.cbRushHit=new Set();P.cbTriple=0;
   if(move){
     CB.lastMove=move;CB.activated++;
-    const label={arc:'부채꼴 검기',pierce:'일직선 돌파',spin:'폭풍 회전',slam:'대지 강타',rocks:'암석 폭발',dashLight:'질풍 삼연격',dashHeavy:'충격 착지'}[move];
-    const name=w==='whip'?'⚡ '+label:w==='fan'?'✦ '+label:label;
+    const labels={
+      sword:{arc:'부채꼴 검기',pierce:'일직선 돌파',spin:'폭풍 회전',slam:'대지 강타',rocks:'암석 폭발',dashLight:'질풍 삼연격',dashHeavy:'충격 착지'},
+      whip:{arc:'부채꼴 전격',pierce:'번개 돌파',spin:'뇌전 폭풍',slam:'전기 충격',rocks:'낙뢰 확산',dashLight:'전광 삼연타',dashHeavy:'전격 착지'},
+      fan:{arc:'부채꼴 마법탄',pierce:'마력 관통',spin:'마력 회오리',slam:'마법 충격파',rocks:'마력 파편 폭발',dashLight:'마법 삼연사',dashHeavy:'마력 착지'}
+    };
+    const name=(w==='whip'?'⚡ ':w==='fan'?'✦ ':'')+labels[w][move];
     pops.push({x:P.x,y:P.y-CH*2.15,t:0,txt:name,col:w==='whip'?'#91edff':w==='fan'?'#e2aeff':'#ffe29d',size:17,vy:-38});
   }
   return true;
