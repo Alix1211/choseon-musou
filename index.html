@@ -53,6 +53,9 @@ body #dash:not(:disabled):active,body #spin:not(:disabled):active,body #atk:not(
 @media (max-width:430px){body #dash{right:calc(max(16px,env(safe-area-inset-right,0px)) + 198px);width:68px;height:68px}}
 
 
+/* v0.4 HUD correction: remove obsolete purple skill buttons; Musou uses Choseon portrait, not a star. */
+body #sk1,body #sk2{display:none!important}
+body #musou{background:#1b1a1e url("a/ui/pt/choseon.webp") center 18%/190% auto no-repeat!important;overflow:hidden;font-size:0!important;color:transparent!important}
 /* 이번 패치: 강/약공격 좌우 변경, 작은 무쌍, 동료 버튼 분리. */
 body #atk{right:calc(max(16px,env(safe-area-inset-right,0px)) + 105px)!important;width:86px!important;height:86px!important}
 body #spin{right:max(16px,env(safe-area-inset-right,0px))!important;width:94px!important;height:94px!important}
@@ -390,7 +393,7 @@ body #cmdm{left:calc(max(16px,env(safe-area-inset-left,0px)) + 70px)!important;t
 <button id="atk" disabled>공격</button>
 <button id="spin" disabled title="강공격" aria-label="강공격"></button>
 <button id="dash" disabled title="대시" aria-label="대시"></button>
-<button id="musou" disabled title="무쌍 필살기" aria-label="무쌍 필살기">★</button>
+<button id="musou" disabled title="무쌍난무" aria-label="무쌍난무"></button>
 <button id="sk1" class="skb" disabled></button><button id="sk2" class="skb" disabled></button>
 <div id="bag" hidden><div class="bw">
   <div class="bh"><b>가방</b><span id="bcnt"></span><button id="bclose">닫기</button></div>
