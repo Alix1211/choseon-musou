@@ -90,6 +90,7 @@ if not os.environ.get('NOD'):
     exec(open(B+'_new/p2balance.py',encoding='utf-8').read())
     exec(open(B+'_new/p2combat_timing.py',encoding='utf-8').read())
     exec(open(B+'_new/p2settings.py',encoding='utf-8').read())
+    exec(open(B+'_new/p2playable.py',encoding='utf-8').read())
     open(B+'index.html','w',encoding='utf-8').write(src)
 
 print('ok',len(src))

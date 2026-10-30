@@ -53,16 +53,17 @@ const intervals=[
 for(let i=1;i<intervals.length;i++)
   assert(intervals[i].x0>=intervals[i-1].x1+8,intervals[i].name+' overlaps adjacent button');
 const dur=clip('function comboAttackDuration(){','\nfunction comboFps(');
-assert.match(dur,/P\.cbAction==='light'\?\.45:\.62/,'Updated attack cadence missing');
+assert.match(dur,/P\.cbAction==='light'\?COMBO_TIMING.light:COMBO_TIMING.heavy/,'Updated attack cadence missing');
+assert(html.includes('light:.54,heavy:.75'),'Approved slower attack duration missing');
 assert.match(dur,/Number\(ST\.attackSpeed\)/,'Equipment attack-speed scaling must be retained');
-console.log('Controls OK: adjacent dash, portrait Musou, light .45s, heavy .62s');
+console.log('Controls OK: adjacent dash, portrait Musou, light .54s, heavy .75s');
 assert(html.includes('function playVoice(id,priority=1)'), 'Korean voice playback engine required');
 assert(html.includes("CM_AUDIO.playVoice('skill_musou_01',1)"), 'Musou should be last-priority voice');
 assert(html.includes('CHOSEON_VOICE_BY_TEXT.get(L.t)'), 'Story/map dialogue voice mapping not connected');
 assert(html.includes('const voiceRoot=new URL'), 'Voice asset base path missing');
 // Priority regression: skills cannot cut any other voice, but dialogue
 // must cut even a buffered/decoding low-priority skill.
-const voiceBody=clip('  function playVoice(id,priority=1){',"  const controls=document.createElement('div');controls.id='soundControls';");
+const voiceBody=clip('  function playVoice(id,priority=1){',"  addEventListener('pointerdown',unlock");
 assert(voiceBody.includes('voicePending||!!voiceActive||now<voiceDeadline'), 'Pending audio must also block low-priority skills');
 assert(voiceBody.includes('if(priority===1&&busy)return false;'), 'Skill voice must never interrupt an active voice');
 assert(voiceBody.includes('if(busy&&priority<voicePriority)return false;'), 'Lower priority voice must not interrupt a higher one');
