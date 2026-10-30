@@ -35,4 +35,25 @@ assert(!slash.includes('shadowBlur'),'Sword slash must not use per-frame shadow 
 const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert(scripts.length>0,'No inline game script found');
 for(let i=0;i<scripts.length;i++)new vm.Script(scripts[i][1],{filename:'index-script-'+i+'.js'});
+// Combat buttons must be next to each other rather than splitting the
+// right-hand group across distant vertical positions.
+const css=html.split('</style>')[0];
+const matchLast=(id,prop)=>[...css.matchAll(new RegExp('body #'+id+'\\s*\\{([^}]+)\\}', 'g'))].at(-1)?.[1]||'';
+const dashCSS=matchLast('dash'),musouCSS=matchLast('musou');
+assert.match(dashCSS,/\+ 202px/,'Dash must be to the left of light attack');
+assert.match(dashCSS,/\+ 26px/,'Dash should be at the same vertical level as attacks');
+assert.match(musouCSS,/\+ 294px/,'Musou must sit to the left of dash');
+const right=16; // CSS safe-area inset can increase this equally for all buttons.
+const intervals=[
+  {name:'heavy',x0:right,x1:right+94},
+  {name:'light',x0:right+105,x1:right+105+86},
+  {name:'dash',x0:right+202,x1:right+202+74},
+  {name:'musou',x0:right+294,x1:right+294+43}
+];
+for(let i=1;i<intervals.length;i++)
+  assert(intervals[i].x0>=intervals[i-1].x1+8,intervals[i].name+' overlaps adjacent button');
+const dur=clip('function comboAttackDuration(){','\nfunction comboFps(');
+assert.match(dur,/P\.cbAction==='light'\?\.33:\.46/,'Updated attack cadence missing');
+assert.match(dur,/Number\(ST\.attackSpeed\)/,'Equipment attack-speed scaling must be retained');
+console.log('Controls OK: adjacent dash, portrait Musou, light .33s, heavy .46s');
 console.log('Canvas FX budget OK: arc <=10, sweep 1, slash no shadow blur, scripts parse');

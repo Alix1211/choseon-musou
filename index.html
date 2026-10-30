@@ -376,6 +376,21 @@ body #cmdm{left:calc(max(16px,env(safe-area-inset-left,0px)) + 70px)!important;t
 #pause{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 184px);top:calc(max(8px,env(safe-area-inset-top,0px)) + 20px);width:28px;height:29px;min-height:0;padding:0;border:0;background:rgba(10,8,16,.35);border-radius:5px;color:#fff;font:800 20px/29px system-ui,sans-serif;text-shadow:0 1px 4px #000;box-shadow:none;z-index:6;touch-action:manipulation;pointer-events:auto}
 @media(max-width:700px){#tr #mm{width:126px;height:95px}#pause{right:calc(max(16px,env(safe-area-inset-right,0px)) + 136px);top:calc(max(8px,env(safe-area-inset-top,0px)) + 17px);width:26px;height:27px;font-size:18px}}
 
+
+/* v0.5 Android tablet action cluster: attack icons stay in place; dash is
+   adjacent to light attack instead of floating above it. Small Musou portrait
+   sits immediately to the left. Layout works in both landscape tablet/phone. */
+body #dash{
+  right:calc(max(16px,env(safe-area-inset-right,0px)) + 202px)!important;
+  bottom:calc(var(--barh,64px) + 26px + env(safe-area-inset-bottom,0px))!important;
+  width:74px!important;height:74px!important;
+}
+body #musou{
+  right:calc(max(16px,env(safe-area-inset-right,0px)) + 294px)!important;
+  bottom:calc(var(--barh,64px) + 40px + env(safe-area-inset-bottom,0px))!important;
+  width:43px!important;height:43px!important;
+}
+
 </style>
 <canvas id="c"></canvas>
 <div class="hud" id="top">
@@ -3831,7 +3846,7 @@ function comboTick(dt,n,inp){
   }
 }
 function comboAttackDuration(){
-  const base=P.cbMove==='spin'?2.24:P.cbMove==='pierce'?.84:P.cbMove==='dashLight'?.76:P.cbMove==='rocks'?.96:P.cbAction==='light'?.38:.54;
+  const base=P.cbMove==='spin'?2.24:P.cbMove==='pierce'?.84:P.cbMove==='dashLight'?.76:P.cbMove==='rocks'?.96:P.cbAction==='light'?.33:.46;
   /* 장비 공속 배율은 나중에 추가해도 콤보 입력 판정과 독립적이다. */
   const rate=Math.max(.5,Math.min(2.5,Number(ST.attackSpeed)||1));
   return base/rate;
