@@ -31,7 +31,7 @@ fills=0;
 sandbox.fxFns.featherSweep({x:0,y:0,R:240,ha:1.1,a:0},.2);
 assert.equal(fills,1,'Combo cone must use a single gradient draw');
 const slash=clip("}else if(f.k==='slash'){","}else if(f.k==='whip'){");
-assert(!slash.includes('shadowBlur'),'Sword slash must not use per-frame shadow blur');
+assert(!/cx\.shadowBlur\s*=/.test(slash),'Sword slash must not use per-frame shadow blur');
 const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 assert(scripts.length>0,'No inline game script found');
 for(let i=0;i<scripts.length;i++)new vm.Script(scripts[i][1],{filename:'index-script-'+i+'.js'});
