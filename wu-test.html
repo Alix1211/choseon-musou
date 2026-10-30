@@ -1033,6 +1033,7 @@ function hitMob(m,base,w,kb,ang,tag){
   if(m.dead||m.down)return;
   if(P)P.idleT=0;
   let [v,crit]=dmgNum(base);if(m.boss&&m.bs.s==='stunned')v*=1.5;
+  CM_AUDIO.play('hit');
   m.hp-=v;m.hurt=.14;if(!m.boss)m.stun=Math.max(m.stun,.12);
   if(P&&P.mAim){if(w==='sword'||w==='whip')hstop=Math.max(hstop,.045);if(crit)shake=Math.max(shake,3);}
   if(kb&&!m.boss){m.kx+=Math.cos(ang)*kb;m.ky+=Math.sin(ang)*kb;}
@@ -1042,6 +1043,7 @@ function hitMob(m,base,w,kb,ang,tag){
   if(m.hp<=0){if(m.hero){heroDown(m);return;}killMob(m);}
 }
 function killMob(m){
+  CM_AUDIO.play(m.boss?'explosion':'punch');
   m.dead=true;m.deadT=0;S.kills++;if(P)P.nk=0;
   gainExp((m.beacon?5:m.boss?15:m.elite?5:1)*(1+.1*(S.stage-1)));
   if(m.beacon){onBeaconDead(m);return;}
@@ -1054,6 +1056,7 @@ function killMob(m){
 function hurtPlayer(base,nx,ny,kb){
   if(P.mode!=='hunt'&&P.mode!=='tele_in'&&P.mode!=='manual')return;
   const v=base*100/(100+stat.def());
+  CM_AUDIO.play('punch');
   P.hp-=v;hurtFlash=.25;if(kb){P.kx=nx*kb;P.ky=ny*kb;}
   pops.push({x:P.x,y:P.y-CH*1.95,t:0,txt:fmt(v),col:'#ff7a96',size:16,vy:-40});
   if(P.hp<=0){P.hp=0;P.mode='dead';P.tt=0;P.atk=null;S.deaths++;fxTeleport(P.x,P.y,true);}
@@ -1072,7 +1075,55 @@ function nearest(list){ // 벽에 가리지 않은 가장 가까운 적을 우�
 function ang(m){return Math.atan2((m.y-30)-(P.y-CH),m.x-P.x);}
 function gang(m){return Math.atan2(m.y-P.y,m.x-P.x);}
 
+/* 사용자 제공 BGM 3곡 / 골든퀘스트 파일 효과음. 첫 입력 뒤에만 재생한다. */
+const CM_AUDIO=(()=>{
+  const root=new URL('./a/audio/',location.href).href;
+  let settings={bgm:true,sfx:true};
+  try{const s=JSON.parse(localStorage.getItem('choseon_audio')||'{}');for(const k of ['bgm','sfx'])if(typeof s[k]==='boolean')settings[k]=s[k];}catch(e){}
+  let unlocked=false,ctx=null,gain=null,track='',playing=0;
+  const buffers={},loading={},last={};
+  const names=['swing','thrust','slash','spin','hit','punch','explosion','heal','teleport','staff'];
+  const music=new Audio();music.loop=true;music.preload='none';music.volume=.38;
+  function load(name){
+    if(!ctx)return Promise.resolve(null);
+    return loading[name]||(loading[name]=fetch(root+'sfx/'+name+'.ogg').then(r=>{if(!r.ok)throw Error(r.status);return r.arrayBuffer();}).then(b=>ctx.decodeAudioData(b)).then(b=>buffers[name]=b).catch(()=>null));
+  }
+  function sync(){
+    const battle=UI.mode==='battle'||UI.mode==='dlg'||UI.mode==='cut';
+    const next=UI.mode==='boot'?'':UI.mode==='title'?'title':battle?'battle':'camp';
+    if(next!==track){track=next;playing++;music.pause();if(next)music.src=root+'bgm/'+next+'.mp3';}
+    if(!unlocked||!settings.bgm||document.hidden||UI.paused||!track){music.pause();return;}
+    if(music.paused){const token=++playing;const p=music.play();if(p)p.then(()=>{if(token!==playing||document.hidden||UI.paused||!settings.bgm)music.pause();}).catch(()=>{});}
+  }
+  function unlock(){
+    unlocked=true;
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!ctx&&AC){ctx=new AC();gain=ctx.createGain();gain.gain.value=.5;gain.connect(ctx.destination);for(const n of names)load(n);}
+    if(ctx&&ctx.state==='suspended')ctx.resume().catch(()=>{});
+    sync();
+  }
+  function play(name){
+    if(!unlocked||!settings.sfx||document.hidden||UI.paused||!ctx||ctx.state!=='running')return;
+    const now=performance.now();if(now-(last[name]||-1e9)<80)return;last[name]=now;
+    const fire=b=>{if(!b||!settings.sfx||document.hidden||UI.paused||ctx.state!=='running')return;const s=ctx.createBufferSource();s.buffer=b;s.connect(gain);s.start();};
+    if(buffers[name])fire(buffers[name]);else load(name).then(fire);
+  }
+  const controls=document.createElement('div');controls.id='soundControls';
+  controls.style.cssText='position:fixed;right:10px;bottom:10px;z-index:9998;display:flex;gap:6px';
+  for(const [key,label] of [['bgm','배경음'],['sfx','효과음']]){
+    const b=document.createElement('button');b.id='sound_'+key;b.style.cssText='font:700 14px system-ui;padding:8px;color:#fff4d0;background:#281d32;border:1px solid #d5ae59;border-radius:6px';
+    const paint=()=>{b.textContent=label+' '+(settings[key]?'켬':'끔');b.setAttribute('aria-pressed',String(settings[key]));};
+    b.onclick=()=>{settings[key]=!settings[key];try{localStorage.setItem('choseon_audio',JSON.stringify(settings));}catch(e){}paint();sync();};paint();controls.appendChild(b);
+  }
+  document.body.appendChild(controls);
+  addEventListener('pointerdown',unlock,{capture:true});addEventListener('keydown',unlock,{capture:true});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){playing++;music.pause();}else sync();});
+  setInterval(()=>{sync();controls.style.display=UI.mode==='boot'||(UI.mode==='battle'&&!UI.paused)||UI.mode==='dlg'||UI.mode==='cut'?'none':'flex';},200);
+  return {play,sync,get track(){return track;},get music(){return music;},get loaded(){return Object.keys(buffers);}};
+})();
+
 function startAttack(w,target){
+  CM_AUDIO.play(w==='spinfan'?'spin':w==='fan'?'staff':'swing');
   P.mAim=null;P.atk=w;P.atkT=0;P.hitDone=false;P.state='attack';
   bark(w==='spinfan'?'charge':'combo');
   if(w==='spinfan'){P.face='down';P.spinTick=0;P.spinCd=SPIN_CD;}
@@ -1126,6 +1177,7 @@ function useSkill(i,n,inp){
   if(P.skCd[i]>0||P.atk||P.sk||P.skHit)return false;
   const t=n?n.m:null;
   P.skCd[i]=skCdv(i);
+  CM_AUDIO.play(w==='sword'?(i===0?'thrust':'slash'):w==='whip'?'spin':'staff');
   pops.push({x:P.x,y:P.y-CH*2.3,t:0,txt:SK[w][i].n,col:'#ffd0ec',size:16,vy:-34});
   bark(i===1?'ult':'charge');
   if(w==='sword'&&i===0){
@@ -2205,6 +2257,7 @@ function onCaptainDead(m){
   }
 }
 function heroDown(h){
+  CM_AUDIO.play('explosion');
   h.down=true;h.hp=1;h.hurt=.2;h.bs.s='down';h.cast=0;h.wind=0;h.moving=false;
   zones.length=0;shots.length=0;hstop=Math.max(hstop,.35);shake=Math.max(shake,12);
   fx.push({k:'shock',x:h.x,y:h.y,R:200,t:0,life:.5});
@@ -2220,6 +2273,7 @@ function rescueTarget(){
 }
 function doAct(){const h=rescueTarget();if(h)joinHero(h);}
 function joinHero(h){
+  CM_AUDIO.play('heal');
   const id=h.type,fem=FEM.has(id);
   h.dead=true;const k=mobs.indexOf(h);if(k>=0)mobs.splice(k,1);
   const j=M.heroes.indexOf(h);if(j>=0)M.heroes.splice(j,1);
@@ -4091,7 +4145,7 @@ addEventListener('visibilitychange',save);
     cutDefLoad();
     showScreen('title');
     $('load').remove();
-    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,hitMob,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx}};
+    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,hitMob,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx},CM_AUDIO};
     requestAnimationFrame(loop);
   }catch(e){$('load').textContent='오류: '+e.message;console.error(e);}
 })();

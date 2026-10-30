@@ -1,0 +1,23 @@
+const assert=require('node:assert/strict');
+const {chromium}=require('playwright');
+const path=require('node:path');
+(async()=>{const b=await chromium.launch();try{
+ const p=await b.newPage(),errors=[],bad=[];
+ p.on('pageerror',e=>errors.push(e.message));p.on('response',r=>{if(r.url().includes('/a/audio/')&&!r.ok())bad.push(r.status()+':'+r.url());});
+ await p.route('https://raw.githubusercontent.com/Alix1211/choseon-musou/**',r=>{const u=new URL(r.request().url()),k=u.pathname.indexOf('/a/');return k<0?r.continue():r.fulfill({path:path.join(__dirname,u.pathname.slice(k+1))});});
+ await p.goto('http://localhost:8766/wu-test.html');await p.waitForFunction(()=>window.G&&G.UI.mode==='title',null,{timeout:60000});
+ assert.equal(await p.evaluate(()=>G.CM_AUDIO.music.paused),true);
+ await p.keyboard.press('Shift');
+ await p.waitForFunction(()=>G.CM_AUDIO.loaded.length===10&&!G.CM_AUDIO.music.paused&&G.CM_AUDIO.music.currentTime>0);
+ assert.equal(await p.evaluate(()=>G.CM_AUDIO.track),'title');
+ await p.evaluate(()=>G.showScreen('bar'));await p.waitForFunction(()=>G.CM_AUDIO.track==='camp'&&!G.CM_AUDIO.music.paused&&G.CM_AUDIO.music.currentTime>0);
+ await p.evaluate(()=>G.startStage(11,1));await p.waitForFunction(()=>G.P.mode==='manual'&&G.CM_AUDIO.track==='battle'&&!G.CM_AUDIO.music.paused&&G.CM_AUDIO.music.currentTime>0);
+ const hits=await p.evaluate(()=>{const heard=[],play=G.CM_AUDIO.play;G.CM_AUDIO.play=n=>{heard.push(n);play(n);};const m=G.mobs.find(m=>!m.dead&&!m.wuHidden);G.hitMob(m,1,'sword',0,0);G.P.atk=null;G.P.sk=null;G.P.skHit=null;G.P.skCd=[0,0];G.useSkill(0,null,{x:1,y:0});G.CM_AUDIO.play=play;return heard;});
+ assert(hits.includes('hit'));assert(hits.some(n=>['thrust','spin','staff'].includes(n)));
+ await p.evaluate(()=>G.pauseGame(true));await p.waitForFunction(()=>G.CM_AUDIO.music.paused);
+ await p.locator('#sound_bgm').click();assert.equal(await p.locator('#sound_bgm').getAttribute('aria-pressed'),'false');
+ await p.evaluate(()=>G.pauseGame(false));await p.waitForTimeout(250);assert.equal(await p.evaluate(()=>G.CM_AUDIO.music.paused),true);
+ await p.evaluate(()=>G.pauseGame(true));await p.locator('#sound_bgm').click();await p.evaluate(()=>G.pauseGame(false));await p.waitForFunction(()=>!G.CM_AUDIO.music.paused);
+ await p.reload();await p.waitForFunction(()=>window.G&&G.UI.mode==='title');assert.equal(await p.locator('#sound_bgm').getAttribute('aria-pressed'),'true');
+ assert.deepEqual(errors,[]);assert.deepEqual(bad,[]);console.log('효과음 10개 해독 / BGM 3곡 재생 / 전투 연결 / 정지 / 음소거 / 저장 통과',JSON.stringify({hits}));
+}finally{await b.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
