@@ -1111,7 +1111,7 @@ function separate(){
 /* ───────── 전투 ───────── */
 const SPD={move:2,whip:2,sword:2,fan:2,spinfan:1.5};       // 원본보다 빠르게
 const HITF={whip:.46,sword:.44,fan:.36};                    // 한 바퀴 중 타격 시점(임시값)
-const REACH={sword:146,whip:205,fan:600};
+const REACH={sword:146,whip:170,fan:600};
 const IDEAL={sword:80,whip:142,fan:330};   // 싸울 때 서고 싶은 거리
 const SPIN_CD=10;
 function dmgNum(base){
@@ -1293,10 +1293,10 @@ function doHit(w,mm){
     for(const m of list){const dx=m.x-P.x,dy=m.y-P.y,d=Math.hypot(dx,dy);if(d>REACH.sword+16+m.scale*14)continue;let da=Math.abs(Math.atan2(dy,dx)-ga);if(da>Math.PI)da=Math.PI*2-da;if(da<1.25)hitMob(m,base*1.0,'sword',210,Math.atan2(dy,dx));}
     shake=Math.max(shake,2);
   }else if(w==='whip'){
-    const t=aimT(list),a=t?ang(t.m):0,ga=t?gang(t.m):0,L=REACH.whip*ST.rng;
-    fx.push({k:'whip',x:px,y:py,a,t:0,life:.30,L:Math.min(L,t?Math.hypot(t.m.x-P.x,(t.m.y-30)-py)+30:L)});
+    const t=aimT(list),ga=t?gang(t.m):0,a=ga,L=REACH.whip;
+    fx.push({k:'whip',x:px,y:py,a,t:0,life:.30,L});
     const c=Math.cos(ga),s=Math.sin(ga);
-    for(const m of list){const dx=m.x-P.x,dy=m.y-P.y,al=dx*c+dy*s,pr=Math.abs(-dx*s+dy*c);if(al>0&&al<L+m.scale*12&&pr<50+m.scale*14)hitMob(m,base*.85,'whip',120,Math.atan2(dy,dx));}
+    for(const m of list){const dx=m.x-P.x,dy=m.y-P.y,al=dx*c+dy*s,pr=Math.abs(-dx*s+dy*c);if(al>0&&Math.hypot(dx,dy)<=L&&pr<=22)hitMob(m,base*.85,'whip',120,Math.atan2(dy,dx));}
   }else if(w==='fan'){
     const t=aimT(list),a=t?ang(t.m):0;
     orbs.push({x:px+Math.cos(a)*40,y:py+Math.sin(a)*40,vx:Math.cos(a)*560,vy:Math.sin(a)*560,t:0,hit:new Set(),left:4+ST.prc,m:.75*mm});
@@ -1310,7 +1310,7 @@ function spinTick(){
   for(const m of liveMobs()){const d=Math.hypot(m.x-P.x,m.y-P.y);if(d<265+m.scale*14)hitMob(m,base,'fan',150,Math.atan2(m.y-P.y,m.x-P.x));}
   shake=Math.max(shake,3);
 }
-const reachW=w=>w==='whip'?REACH.whip*ST.rng:REACH[w];
+const reachW=w=>REACH[w];
 function chooseWeapon(n,list){
   if(P.spinCd<=0){let c=0;for(const m of list)if(Math.hypot(m.x-P.x,m.y-P.y)<250&&hasLOS(P.x,P.y,m.x,m.y))c++;if(c>=3)return 'spinfan';}
   if(!n.los)return null;
@@ -1357,10 +1357,10 @@ function skillHit(id){
       if(da<1.05){hitMob(m,atk*2.4,'sword',260,Math.atan2(dy,dx));if(!m.dead&&!m.boss)m.stun=Math.max(m.stun,1.0);}}
     shake=Math.max(shake,6);
   }else if(id==='pull'){
-    const cand=list.filter(m=>Math.hypot(m.x-P.x,m.y-P.y)<420&&hasLOS(P.x,P.y,m.x,m.y)).sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y)).slice(0,3);
+    const cand=list.filter(m=>Math.hypot(m.x-P.x,m.y-P.y)<=REACH.whip&&hasLOS(P.x,P.y,m.x,m.y)).sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y)).slice(0,3);
     for(const m of cand){
       const dx=P.x-m.x,dy=P.y-m.y,d=Math.hypot(dx,dy)||1;
-      fx.push({k:'whip',x:px,y:py,a:ang(m),t:0,life:.3,L:Math.hypot(m.x-P.x,(m.y-30)-py)+30});
+      fx.push({k:'whip',x:px,y:py,a:Math.atan2(m.y-P.y,m.x-P.x),t:0,life:.3,L:REACH.whip});
       hitMob(m,atk*1.2,'whip',0,0);
       if(!m.dead&&!m.boss){const v=Math.max(0,d-90)*3.9;m.kx+=dx/d*v;m.ky+=dy/d*v;m.stun=Math.max(m.stun,.7);}
     }
@@ -1409,8 +1409,8 @@ function autoSkill(n,list){
     if(rdy(0)&&n.los&&n.d>200&&n.d<430)return 0;
     if(rdy(1)&&(cnt(200)>=2||bd<210))return 1;
   }else if(w==='whip'){
-    if(rdy(0)&&cnt(380)>=3&&n.d>130)return 0;
-    if(rdy(1)&&n.los&&n.d<=330)return 1;
+    if(rdy(0)&&cnt(REACH.whip)>=3&&n.d>90&&n.d<=REACH.whip)return 0;
+    if(rdy(1)&&n.los&&n.d<=REACH.whip)return 1;
   }else{
     if(rdy(0)&&n.los&&(cnt(520)>=2||bd<520))return 0;
     if(rdy(1)&&(cnt(230)>=3||bd<320))return 1;
@@ -3732,8 +3732,8 @@ function drawFx(){
       const fade=Math.max(0,1-u),phase=easeOut(Math.min(1,f.t/.12));
       const half=f.radial?Math.PI:(f.ha||.85),a0=f.a-half,a1=a0+2*half*phase;
       cx.save();cx.lineCap='round';
-      cx.beginPath();cx.arc(f.x,f.y,f.R*.83,a0,a1);cx.strokeStyle='rgba(245,126,177,'+(.72*fade)+')';cx.lineWidth=10;cx.stroke();
-      cx.beginPath();cx.arc(f.x,f.y,f.R*.83,a0,a1);cx.strokeStyle='rgba(255,236,244,'+(.82*fade)+')';cx.lineWidth=3;cx.stroke();
+      cx.beginPath();cx.arc(f.x,f.y,Math.max(0,f.R-5),a0,a1);cx.strokeStyle='rgba(245,126,177,'+(.72*fade)+')';cx.lineWidth=10;cx.stroke();
+      cx.beginPath();cx.arc(f.x,f.y,Math.max(0,f.R-5),a0,a1);cx.strokeStyle='rgba(255,236,244,'+(.82*fade)+')';cx.lineWidth=3;cx.stroke();
       cx.restore();
     }else if(f.k==='slash'){
       // Avoid shadowBlur with layered arc segments: Android WebView may fall back
@@ -3745,13 +3745,13 @@ function drawFx(){
       arcBand(f.x,f.y,a0,a1,f.R-4,f.R*(f.small?.12:.16),easeOut(sweep),.8*fadeA,2.2);
       cx.restore();
     }else if(f.k==='whip'){
-      cx.save(); // 근접 채찍: 실시간 shadowBlur 제거
-      const ext=easeOut(Math.min(1,f.t/.09)),fadeA=f.t<.1?1:1-(f.t-.1)/(f.life-.1),L=Math.min(f.L,REACH.whip*ST.rng)*ext;
+      cx.save(); // GPU-friendly: no shadow blur
+      const ext=easeOut(Math.min(1,f.t/.09)),fadeA=f.t<.1?1:1-(f.t-.1)/(f.life-.1),L=Math.max(0,Math.min(f.L,REACH.whip)-6)*ext;
       const c=Math.cos(f.a),s=Math.sin(f.a),nx=-s,ny=c;
-      const pts=[];for(let i=0;i<=20;i++){const q=i/20,w=Math.sin(q*Math.PI*3-f.t*55)*(1-q)*20*(1-ext*.6);pts.push([f.x+c*(40+q*L)+nx*w,f.y+s*(40+q*L)+ny*w]);}
+      const pts=[];for(let i=0;i<=20;i++){const q=i/20,d=L*q,w=Math.sin(q*Math.PI*3-f.t*55)*(1-q)*q*12;pts.push([f.x+c*d+nx*w,f.y+s*d+ny*w]);}
       for(const [lw,col] of [[12,'rgba(255,90,170,'+.30*fadeA+')'],[6,'rgba(255,170,220,'+.7*fadeA+')'],[2.5,'rgba(255,255,255,'+fadeA+')']]){
         cx.strokeStyle=col;cx.lineWidth=lw;cx.lineCap='round';cx.beginPath();pts.forEach((p,i)=>i?cx.lineTo(p[0],p[1]):cx.moveTo(p[0],p[1]));cx.stroke();}
-      const tp=pts[20];glow(tp[0],tp[1],26*fadeA+4,'rgba(255,255,255,'+.7*fadeA+')','rgba(255,90,170,0)');cx.restore();
+      const tp=pts[20];glow(tp[0],tp[1],Math.min(5,REACH.whip-L)*fadeA,'rgba(255,255,255,'+.7*fadeA+')','rgba(255,90,170,0)');cx.restore();
     }else if(f.k==='ring'){
       featherRing(f,u);
     }else if(f.k==='tele'){
@@ -3957,10 +3957,10 @@ function comboDamage(m,power,kb,ang,stun){
 function comboStrike(move,part){
   const w=P.cbWeapon||ST.wt,a=P.cbAngle||0,px=P.x,py=P.y,ct=Math.cos(a),st=Math.sin(a),list=liveMobs();
   const radial=move==='spin'||move==='slam'||move==='rocks'||move==='dashHeavy';
-  const radius=move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='whip'?258:w==='fan'?440:240;
+  const radius=w==='whip'?REACH.whip:move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='fan'?440:240;
   const power=move==='spin'?.67:move==='rocks'?2.3:move==='slam'?1.7:move==='dashHeavy'?1.05:move==='dashLight'?.65:move==='arc'?1.7:1.8;
   const kb=move==='dashHeavy'?470:move==='slam'||move==='rocks'?390:move==='spin'?240:move==='dashLight'?135:225;
-  if(w==='whip')fx.push({k:'whipSweep',x:px,y:py-CH*.3,t:0,life:.30,R:radius,a,radial,ha:move==='arc'?1.18:.78});
+  if(w==='whip')fx.push({k:'whipSweep',x:px,y:py,t:0,life:.30,R:radius,a,radial,ha:move==='arc'?1.18:.78});
   else fx.push({k:radial?'shock':'sweep',x:px,y:radial?py:py-CH*.3,t:0,life:.32,R:radius,a,ha:move==='arc'?1.18:.54,col:w==='fan'?'170,105,255':'255,205,110',col2:'255,255,255',small:move==='dashHeavy'});
   if(w==='fan'&&(move==='arc'||move==='dashLight')){
     const count=move==='arc'?5:3;
@@ -3972,7 +3972,8 @@ function comboStrike(move,part){
   for(const m of list){
     const dx=m.x-px,dy=m.y-py,d=Math.hypot(dx,dy),da=Math.atan2(dy,dx),dot=dx*ct+dy*st;
     let delta=Math.abs(da-a);if(delta>Math.PI)delta=2*Math.PI-delta;
-    const fits=radial?d<radius+m.scale*12:move==='arc'?d<radius+m.scale*12&&delta<1.20:move==='dashLight'?d<radius+m.scale*12&&delta<.95:dot>0&&d<radius+m.scale*12&&delta<.58;
+    const within=d<=(w==='whip'?radius:radius+m.scale*12);
+    const fits=radial?within:move==='arc'?within&&delta<1.20:move==='dashLight'?within&&delta<.95:dot>0&&within&&delta<.58;
     if(!fits)continue;
     comboDamage(m,power,kb,da,move==='slam'?.9:move==='rocks'?1.2:move==='dashHeavy'?.4:w==='whip'?.45:0);
     /* 채찍은 근접 타격 궤적만 표시한다. */
@@ -3992,7 +3993,7 @@ function comboMoveTick(dt,prev,frame,total){
     const d=P.cbDir,u=frame/total;
     if(u<.88){moveEnt(P,d.x*650*dt,d.y*650*dt,18);fx.push({k:'sp2',x:P.x,y:P.y-CH,vx:-d.x*60,vy:-90,t:0,life:.23});}
     for(const m of liveMobs()){
-      if(P.cbRushHit.has(m)||Math.hypot(m.x-P.x,m.y-P.y)>100+m.scale*15)continue;
+      if(P.cbRushHit.has(m)||Math.hypot(m.x-P.x,m.y-P.y)>(P.cbWeapon==='whip'?Math.min(REACH.whip,100+m.scale*15):100+m.scale*15))continue;
       P.cbRushHit.add(m);comboDamage(m,2.1,320,Math.atan2(m.y-P.y,m.x-P.x),P.cbWeapon==='whip'?.6:0);
       /* 채찍은 근접 타격 궤적만 표시한다. */
     }
