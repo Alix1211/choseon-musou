@@ -35,6 +35,7 @@ jobs:
           cp index.html /tmp/choseon-range-review/index_before.html
           python3 _new/p2.py
           cp index.html /tmp/choseon-range-review/index_regenerated.html
+          python3 _new/emit_preserve_patch.py
           git diff --numstat -- index.html | tee /tmp/choseon-range-review/diffstat.txt
           git diff -- index.html > /tmp/choseon-range-review/index.patch
       - name: Upload regenerated index and exact diff for review
