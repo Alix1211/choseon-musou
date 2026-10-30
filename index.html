@@ -858,7 +858,7 @@ const MOBH=104,mobH=m=>MT[m.type].vh||MOBH;   // 보통 몹의 화면 높이(px)
 function createMob(type,set,x,y,col,elite){
   const t=MT[type],DF=DIFF[S.diff]||DIFF[1],k=Math.pow(1.13,S.stage-1)*DF.hp,ka=Math.pow(1.12,S.stage-1)*DF.atk;
   const hp=30*t.hp*k*(elite?3.4:1);
-  const m={type,set,x,y,hx:x,hy:y,col,elite,hp,maxHp:hp,atk:4*t.atk*ka*(elite?1.5:1),sp:t.sp*(elite?.92:1),
+  const m={type,set,x,y,hx:x,hy:y,col,elite,hp,maxHp:hp,atk:7*t.atk*ka*(elite?1.5:1),sp:t.sp*(elite?.92:1),
     face:'down',kx:0,ky:0,hurt:0,stun:0,cd:rnd(.4,1.4),wind:0,dead:false,deadT:0,seed:Math.random()*9,
     gold:3.5*Math.pow(1.26,S.stage-1)*(elite?7:1),scale:elite?(t.vh?1:1.32):1,moving:false,lunge:0};
   if(t.hero)m.hero=true;
@@ -949,56 +949,171 @@ function chaseMove(m,tg,s,dt){
   const ex=(bx+.5)*TS-m.x,ey=(by+.5)*TS-m.y,el=Math.hypot(ex,ey)||1;
   moveEnt(m,ex/el*s,ey/el*s,16);
 }
+/* Enemy attacks use ground-space geometry; portraits/sprites and player moves stay unchanged. */
+const ENEMY_PROFILES={
+  sword:{kind:'sweep',speed:205,reach:185,half:.95,wind:.46,cd:1.30},
+  spear:{kind:'thrust',speed:195,reach:230,width:88,wind:.54,cd:1.45},
+  cav:{kind:'charge',speed:245,reach:345,width:104,wind:.72,cd:2.55},
+  egg:{kind:'sweep',speed:190,reach:180,half:1.05,wind:.50,cd:1.40},
+  jiangshi:{kind:'thrust',speed:200,reach:175,width:94,wind:.48,cd:1.30},
+  slime:{kind:'sweep',speed:205,reach:145,half:1.2,wind:.42,cd:1.15},
+  bow:{kind:'arrow',speed:165,reach:700,keep:390,wind:.56,cd:1.65,shot:560},
+  magic:{kind:'magic',speed:155,reach:650,keep:400,wind:.78,cd:2.4,shot:350},
+  fox:{kind:'magic',speed:170,reach:650,keep:410,wind:.74,cd:2.3,shot:370}
+};
+const ENEMY_PRESSURE={started:0,hits:0};
+for(const [id,p] of Object.entries(ENEMY_PROFILES))if(MT[id])MT[id].wind=p.wind;
+function enemyProfile(m){return ENEMY_PROFILES[m.type]||ENEMY_PROFILES.sword;}
+function enemyArmored(m){return !!(!m.dead&&!m.down&&(m.charge||(m.intent&&(m.elite||m.type==='cav')&&m.intent.left<m.intent.duration*.8)));}
+function enemyContains(z,px,py,pad=18){
+  const dx=px-z.x,dy=(py-z.y)/YR;
+  if(z.k==='circle')return Math.hypot(dx,dy)<=z.r+pad;
+  const ca=Math.cos(z.a||0),sa=Math.sin(z.a||0),along=dx*ca+dy*sa,across=-dx*sa+dy*ca;
+  if(z.k==='rect')return along>=-pad&&along<=z.L+pad&&Math.abs(across)<=z.w/2+pad;
+  if(z.k==='cone'){
+    const d=Math.hypot(dx,dy);if(d<=pad)return true;if(d>z.R+pad)return false;
+    let angle=Math.atan2(dy,dx)-(z.a||0);while(angle>Math.PI)angle-=2*Math.PI;while(angle<-Math.PI)angle+=2*Math.PI;
+    return Math.abs(angle)<=z.ha+Math.asin(Math.min(1,pad/d));
+  }
+  return false;
+}
+function enemyTarget(m){
+  // Most enemies pressure the controlled hero. A smaller group can engage allies.
+  if((Math.floor(m.seed*997)%4)!==0&&Math.hypot(P.x-m.x,P.y-m.y)<760)return P;
+  return allies.length?tgtOf(m):P;
+}
+function enemyVelocity(t){
+  if(t!==P)return {x:0,y:0};
+  const input=readInput(),n=Math.hypot(input.x,input.y)||1;
+  return {x:input.x/n*270,y:input.y/n*270};
+}
+function enemyAim(m,t,lead){
+  const v=enemyVelocity(t);
+  return {x:t.x+clamp(v.x*lead,-130,130),y:t.y+clamp(v.y*lead,-100,100)};
+}
+function enemyCanHit(z,t){return enemyContains(z,t.x,t.y)&&hasLOS(z.x,z.y,t.x,t.y);}
+function enemyHit(z,damage,kb,hitSet){
+  for(const t of [P,...allies]){
+    if(t===P?!['manual','hunt'].includes(P.mode):t.down||t.dead)continue;
+    if(hitSet&&hitSet.has(t))continue;if(!enemyCanHit(z,t))continue;
+    if(hitSet)hitSet.add(t);
+    const dx=t.x-z.x,dy=t.y-z.y,d=Math.hypot(dx,dy)||1;
+    if(t===P){hurtPlayer(damage,dx/d,dy/d,kb||0);ENEMY_PRESSURE.hits++;}
+    else hurtAlly(t,damage,dx/d,dy/d,kb||0);
+  }
+}
+function enemyAttackAvailable(m){
+  const cap=S.stage<4?2:S.stage<20?3:4;
+  let n=0;for(const q of mobs)if(q!==m&&!q.dead&&(q.intent||q.charge)&&Math.hypot(q.x-P.x,q.y-P.y)<760)n++;
+  return n<cap+(S.diff>=2?1:0);
+}
+function enemyStart(m,p,target){
+  if(!enemyAttackAvailable(m)){m.cd=.16+rnd(0,.20);return;}
+  if(!hasLOS(m.x,m.y,target.x,target.y)){m.cd=.2;return;}
+  const aim=enemyAim(m,target,p.kind==='arrow'?.20:.12);
+  m.intent={kind:p.kind,target,a:Math.atan2((aim.y-m.y)/YR,aim.x-m.x),x:m.x,y:m.y,
+    left:p.wind,duration:p.wind,reach:p.reach,width:p.width,half:p.half,aim,profile:p};
+  m.wind=p.wind;ENEMY_PRESSURE.started++;
+}
+function enemyArea(m,a){
+  if(a.kind==='thrust'||a.kind==='charge')return {k:'rect',x:m.x,y:m.y,a:a.a,L:a.reach,w:a.width};
+  return {k:'cone',x:m.x,y:m.y,a:a.a,R:a.reach,ha:a.half||.14};
+}
+function enemyFire(m,a){
+  const p=a.profile;
+  if(a.kind==='charge'){
+    m.charge={a:a.a,left:a.reach,hit:new Set(),speed:560};return;
+  }
+  if(a.kind==='arrow'||a.kind==='magic'){
+    const originY=m.y-48*m.scale;
+    const aim=a.aim,aa=Math.atan2(aim.y-CH*.97-originY,aim.x-m.x);
+    const count=a.kind==='magic'||(m.elite&&S.stage>=5)?3:1;
+    for(let i=0;i<count;i++){
+      const angle=aa+(i-(count-1)/2)*.18;
+      shots.push({x:m.x,y:originY,vx:Math.cos(angle)*p.shot,vy:Math.sin(angle)*p.shot,
+        dmg:m.atk*(count===3?.8:1),kind:m.type,t:0,r:a.kind==='magic'?17:10,life:2.4});
+    }
+    if(a.kind==='magic')addZone({k:'circle',x:aim.x,y:aim.y,r:100,life:.85,dmg:m.atk*.9,kb:130,fx:'rock',pressureOwner:m});
+  }else{
+    const area=enemyArea(m,a);enemyHit(area,m.atk,a.kind==='thrust'?120:160);
+    fx.push({k:'sweep',x:m.x,y:m.y,a:a.a,R:a.reach,ha:a.half||.22,t:0,life:.22,col:'255,100,85',small:true});
+    m.lunge=1;
+  }
+}
+function enemyChargeTick(m,dt){
+  const c=m.charge,step=Math.min(c.left,c.speed*dt),x=m.x,y=m.y;
+  moveEnt(m,Math.cos(c.a)*step,Math.sin(c.a)*YR*step,18);
+  const moved=Math.hypot(m.x-x,(m.y-y)/YR);
+  enemyHit({k:'rect',x,y,a:c.a,L:moved+80,w:104},m.atk*1.35,260,c.hit);
+  c.left-=moved;m.moving=true;m.lunge=1;m.face=faceTo(Math.cos(c.a),Math.sin(c.a)*YR);
+  if(c.left<=0||moved<step*.3){m.charge=null;m.cd=Math.max(m.cd,.7);}
+}
+function enemyBossPressure(m,dt,d){
+  m.pressureCd=(m.pressureCd==null?2.5:m.pressureCd)-dt;
+  if(m.pressureCd>0||d<285||d>700||!['golem','dueok'].includes(m.type)||!hasLOS(m.x,m.y,P.x,P.y))return;
+  const a=enemyAim(m,P,.22);
+  addZone({k:'circle',x:a.x,y:a.y,r:100,life:.95,dmg:m.atk*.95,kb:170,fx:'rock',pressureOwner:m});
+  m.pressureCd=m.hp<m.maxHp*.5?3.2:4.1;
+}
 function updateMob(m,dt){
   if(m.wuHidden||weiMob(m,dt))return;
-  if(m.dead){m.deadT+=dt;return;}
+  if(m.dead){m.intent=null;m.charge=null;m.deadT+=dt;return;}
   m.hurt=Math.max(0,m.hurt-dt);m.stun=Math.max(0,m.stun-dt);m.lunge=Math.max(0,m.lunge-dt*3);
   if(m.static){m.au=0;return;}
   if(m.kx||m.ky){moveEnt(m,m.kx*dt,m.ky*dt,16);const f=Math.pow(.02,dt);m.kx*=f;m.ky*=f;if(Math.abs(m.kx)+Math.abs(m.ky)<8)m.kx=m.ky=0;}
-  let dx=P.x-m.x,dy=P.y-m.y,d=Math.hypot(dx,dy)||1;
-  m.moving=false;m.au=auraOf(m);
-  if(!m.col.woken){m.face=faceTo(dx,dy);return;}
-  if(P.mode==='dead'||P.mode==='tele_out'){return;}
-  m.face=faceTo(dx,dy);
-  if(m.stun>0)return;
-  if(m.down){return;}
-  if(m.boss){updateBoss(m,dt,dx,dy,d);return;}
-  const t=MT[m.type];
-  const tg=allies.length?tgtOf(m):P;
-  if(tg!==P){dx=tg.x-m.x;dy=tg.y-m.y;d=Math.hypot(dx,dy)||1;m.face=faceTo(dx,dy);}
-  m.lunTo=tg;
-  m.cd-=dt;m.slowT=Math.max(0,(m.slowT||0)-dt);const msp=m.sp*(m.slowT>0?.5:1);
-  if(m.wind>0){
-    m.wind-=dt;
-    if(m.wind<=0){
-      if(t.shot){const a=Math.atan2((tg===P?P.y-CH*.97:tg.y-50)-m.y,tg.x-m.x);shots.push({x:m.x,y:m.y-48*m.scale,vx:Math.cos(a)*t.shot,vy:Math.sin(a)*t.shot,dmg:m.atk*(1+m.au),kind:m.type,t:0,r:(m.type==='magic'||m.type==='fox')?16:10});}
-      else{
-        if(d<=t.reach+26+(m.scale-1)*20){if(tg===P)hurtPlayer(m.atk*(1+m.au),dx/d,dy/d);else hurtAlly(tg,m.atk*(1+m.au),dx/d,dy/d,0);}
-        m.lunge=1;
-        if(m.type==='cav')fx.push({k:'slash',x:m.x+dx/d*40,y:m.y-mobH(m)*.45*m.scale,a:Math.atan2(dy/YR-0,dx),R:130,t:0,life:.28,small:true});   // 기병 베기 궤적
-      }
-      m.cd=t.cd*rnd(.9,1.15)/(1+m.au)*((DIFF[S.diff]||DIFF[1])[t.shot?'rangedCd':'meleeCd']||1);
+  m.moving=false;m.au=0;
+  if(!m.col.woken||m.down||!['manual','hunt'].includes(P.mode))return;
+  const dx=P.x-m.x,dy=P.y-m.y,d=Math.hypot(dx,dy)||1;
+  if(m.stun>0&&(!enemyArmored(m)||m.stun>.6)){
+    m.intent=null;m.charge=null;m.wind=0;m.cd=Math.max(m.cd,.35);return;
+  }
+  if(m.boss){enemyBossPressure(m,dt,d);updateBoss(m,dt,dx,dy,d);return;}
+  m.cd-=dt;m.slowT=Math.max(0,(m.slowT||0)-dt);
+  if(m.charge){enemyChargeTick(m,dt);return;}
+  if(m.intent){
+    const a=m.intent;a.left-=dt;m.wind=Math.max(0,a.left);
+    if(a.left>a.duration*.4){
+      const aim=enemyAim(m,a.target,a.kind==='arrow'?.2:.12),want=Math.atan2((aim.y-m.y)/YR,aim.x-m.x);
+      let delta=want-a.a;while(delta>Math.PI)delta-=2*Math.PI;while(delta<-Math.PI)delta+=2*Math.PI;
+      a.a+=clamp(delta,-2.2*dt,2.2*dt);a.aim=aim;
+    }
+    m.face=faceTo(Math.cos(a.a),Math.sin(a.a)*YR);
+    if(a.left<=0){
+      if(hasLOS(m.x,m.y,a.aim.x,a.aim.y))enemyFire(m,a);
+      m.intent=null;m.wind=0;
+      const df=DIFF[S.diff]||DIFF[1];m.cd=a.profile.cd*rnd(.88,1.12)*(a.kind==='arrow'||a.kind==='magic'?df.rangedCd:df.meleeCd);
     }
     return;
   }
-  if(t.shot){
-    const want=d<t.keep-40?-1:d>t.keep+30?1:0;
-    if(want){const s=msp*dt*want;if(want>0)chaseMove(m,tg,s,dt);else moveEnt(m,dx/d*s,dy/d*s,16);m.moving=true;}
-    if(m.cd<=0&&d<=t.range)m.wind=t.wind;
-  }else{
-    if(d>t.reach*.9){const s=msp*dt;chaseMove(m,tg,s,dt);m.moving=true;}
-    else if(m.cd<=0)m.wind=t.wind;
+  const p=enemyProfile(m),target=enemyTarget(m),tx=target.x-m.x,ty=target.y-m.y,dist=Math.hypot(tx,ty)||1;
+  m.face=faceTo(tx,ty);m.lunTo=target;
+  const speed=p.speed*(S.diff===0?.86:1)*(m.elite?1.05:1)*(m.slowT>0?.5:1);
+  const ranged=p.kind==='arrow'||p.kind==='magic';
+  const trigger=ranged?p.reach:p.kind==='charge'?420:p.reach*.86;
+  if(m.cd<=0&&dist<=trigger&&hasLOS(m.x,m.y,target.x,target.y)){enemyStart(m,p,target);return;}
+  if(ranged&&dist<p.keep-65){moveEnt(m,-tx/dist*speed*dt,-ty/dist*speed*dt,16);m.moving=true;}
+  else if(!ranged||dist>p.keep+35){
+    const side=(Math.floor(m.seed*53)%2?1:-1),flank=!ranged&&dist>p.reach*1.2&&dist<460;
+    const offset=flank?(p.kind==='charge'?130:75)*side:0;
+    chaseMove(m,{x:target.x-ty/dist*offset,y:target.y+tx/dist*offset},speed*dt,dt);m.moving=true;
   }
 }
+function drawEnemyIntents(){
+  for(const m of mobs){
+    if(!m.intent||m.dead||m.down||m.wuHidden||m.col?.weiHidden)continue;
+    if(Math.abs(m.x-cam.x)>VW/Z*.6+450||Math.abs(m.y-cam.y)>VH/Z*.6+450)continue;
+    const a=m.intent,z=enemyArea(m,a),u=1-a.left/a.duration;
+    cx.save();cx.translate(z.x,z.y);cx.scale(1,YR);cx.rotate(z.a);cx.beginPath();
+    if(z.k==='rect')cx.rect(0,-z.w/2,z.L,z.w);
+    else{cx.moveTo(0,0);cx.arc(0,0,z.R,-z.ha,z.ha);cx.closePath();}
+    cx.fillStyle='rgba(255,65,45,'+(.10+.14*u)+')';cx.strokeStyle=enemyArmored(m)?'#ffce75':'rgba(255,120,95,.85)';cx.lineWidth=enemyArmored(m)?3:2;cx.fill();cx.stroke();cx.restore();
+  }
+}
+
 /* ───────── 보스 : 경고 장판 + 패턴 ───────── */
 const YR=.78;   // 바닥 원을 납작하게 그리는 비율 (판정도 같은 비율)
 function addZone(z){z.t=0;zones.push(z);return z;}
-function inZone(z,px,py){
-  const dx=px-z.x,dy=(py-z.y)/YR;
-  if(z.k==='circle')return dx*dx+dy*dy<=z.r*z.r;
-  if(z.k==='cone'){const d=Math.hypot(dx,dy);if(d>z.R)return false;let da=Math.abs(Math.atan2(dy,dx)-z.a);if(da>Math.PI)da=Math.PI*2-da;return da<=z.ha;}
-  return false;
-}
+function inZone(z,px,py){return enemyContains(z,px,py);}
 function debris(x,y,r,n){for(let i=0;i<n;i++){const a=rnd(0,7),sp=rnd(120,320);fx.push({k:'deb',x:x+Math.cos(a)*r*.3,y:y-8,vx:Math.cos(a)*sp,vy:-rnd(200,380),t:0,life:rnd(.5,.8),sz:rnd(5,11),rot:rnd(0,6)});}}
 function zoneBurst(z){
   if(z.fx==='slam'){fx.push({k:'shock',x:z.x,y:z.y,R:z.r,t:0,life:.5});shake=Math.max(shake,z.big?16:12);debris(z.x,z.y,z.r,10);}
@@ -1010,22 +1125,23 @@ function zoneBurst(z){
 }
 function updateZones(dt){
   for(let i=zones.length-1;i>=0;i--){
-    const z=zones[i];z.t+=dt;
+    const z=zones[i];if(z.pressureOwner&&(z.pressureOwner.dead||z.pressureOwner.down)){zones.splice(i,1);continue;}z.t+=dt;
     if(z.t<z.life)continue;
     zones.splice(i,1);
     if(!z.noDmg){
-      if(inZone(z,P.x,P.y)){const l=Math.hypot(P.x-z.x,P.y-z.y)||1;hurtPlayer(z.dmg,(P.x-z.x)/l,(P.y-z.y)/l,z.kb||0);}
+      if(enemyCanHit(z,P)){const l=Math.hypot(P.x-z.x,P.y-z.y)||1;hurtPlayer(z.dmg,(P.x-z.x)/l,(P.y-z.y)/l,z.kb||0);}
+      for(const a of allies)if(!a.down&&!a.dead&&enemyCanHit(z,a)){const dx=a.x-z.x,dy=a.y-z.y,d=Math.hypot(dx,dy)||1;hurtAlly(a,z.dmg,dx/d,dy/d,z.kb||0);}
       zoneBurst(z);
     }
   }
 }
 const bd=m=>m.atk*(m.buffT>0?1.35:1);
-function bossMove(m,vx,vy,sp,dt){const l=Math.hypot(vx,vy)||1;moveEnt(m,vx/l*sp*dt,vy/l*sp*dt,18);m.moving=true;}
+function bossMove(m,vx,vy,sp,dt){const l=Math.hypot(vx,vy)||1,speed=Math.max(sp,S.diff===0?145:195);chaseMove(m,{x:m.x+vx/l*200,y:m.y+vy/l*200},speed*dt,dt);m.moving=true;}
 function updateBoss(m,dt,dx,dy,d){
   const b=m.bs,ph2=m.hp<m.maxHp*.5;
   if(ph2&&b.phase===1){b.phase=2;pops.push({x:m.x,y:m.y-170,t:0,txt:'격노!',col:'#ff9a7a',size:24,vy:-30});shake=Math.max(shake,8);}
   m.buffT=Math.max(0,m.buffT-dt);
-  b.cd-=dt;b.cdA-=dt;b.cdB-=dt;b.cdR-=dt;b.t+=dt;
+  b.cd-=dt*1.35;b.cdA-=dt*1.35;b.cdB-=dt*1.35;b.cdR-=dt*1.35;b.t+=dt;
   m.cast=0;
   if(m.type==='golem')aiGolem(m,b,dt,dx,dy,d,ph2);
   else if(m.type==='saja')aiSaja(m,b,dt,dx,dy,d,ph2);
@@ -1163,9 +1279,9 @@ function hitMob(m,base,w,kb,ang,tag){
   if(P)P.idleT=0;
   let [v,crit]=dmgNum(base);if(m.boss&&m.bs.s==='stunned')v*=1.5;
   CM_AUDIO.play('hit');
-  m.hp-=v;m.hurt=.14;if(!m.boss)m.stun=Math.max(m.stun,.12);
+  m.hp-=v;m.hurt=.14;if(!m.boss&&!enemyArmored(m))m.stun=Math.max(m.stun,.12);
   if(P&&P.mAim){if(w==='sword'||w==='whip')hstop=Math.max(hstop,.045);if(crit)shake=Math.max(shake,3);}
-  if(kb&&!m.boss){m.kx+=Math.cos(ang)*kb;m.ky+=Math.sin(ang)*kb;}
+  if(kb&&!m.boss){const resist=enemyArmored(m)?.15:1;m.kx+=Math.cos(ang)*kb*resist;m.ky+=Math.sin(ang)*kb*resist;}
   wakeColony(m.col);
   pops.push({x:m.x,y:m.y-80*m.scale,t:0,txt:fmt(v),col:crit?'#ffe27a':'#ffffff',size:crit?22:15,vy:-46});
   for(let i=0;i<4;i++)fx.push({k:'spark',x:m.x,y:m.y-45*m.scale,vx:rnd(-120,120),vy:rnd(-150,-30),t:0,life:.3});
@@ -1530,7 +1646,7 @@ function updatePlayer(dt){
       if(P.tt>=.34){P.alpha=1;P.stretch=1;P.tt=0;if(!S.auto)P.mode='manual';else if(P.target){P.mode='hunt';wakeColony(P.target);}else P.mode='clear_wait';}
       break;}
     case 'hunt':{
-      P.hp=Math.min(stat.maxHp(),P.hp+stat.maxHp()*(.004+ST.regen/100)*dt);
+      P.hp=Math.min(stat.maxHp(),P.hp+stat.maxHp()*(ST.regen/100)*dt);
       const list=liveMobs();
       if(!list.length){
         const done=M.colonies.filter(c=>c.mobs.every(m=>m.dead));
@@ -1553,7 +1669,7 @@ function updatePlayer(dt){
       combat(dt,list,n,ov?inp:(P.ovT<.35?{x:0,y:0}:null));   // 손을 뗀 직후 .35초는 제자리에서 맞추기만(자동이 곧장 달려가지 않게)
       break;}
     case 'manual':{
-      P.hp=Math.min(stat.maxHp(),P.hp+stat.maxHp()*.01*dt);
+      P.hp=Math.min(stat.maxHp(),P.hp+stat.maxHp()*(ST.regen/100)*dt);
       for(const c of M.colonies)if(!c.woken&&!c.cleared&&!c.hold&&Math.hypot(c.cx-P.x,c.cy-P.y)<520)wakeColony(c);
       for(const c of M.colonies)if(!c.cleared&&c.mobs.every(m=>m.dead))c.cleared=true;
       if(!M.musou&&M.colonies.every(c=>c.cleared)){P.mode='stage_clear';P.tt=0;P.atk=null;P.state='idle';showBanner('스테이지 클리어',1.6);break;}
@@ -3659,6 +3775,7 @@ function drawMob(m){
   }
 }
 function drawZones(){
+  drawEnemyIntents();
   for(const z of zones){
     const u=Math.min(1,z.t/z.life),pul=.5+.5*Math.sin(time*22);
     cx.save();cx.translate(z.x,z.y);
@@ -4025,7 +4142,7 @@ function comboFps(e){
 function comboDamage(m,power,kb,ang,stun){
   const w=P.cbWeapon||combatWeapon();
   hitMob(m,stat.atk()*power*(w==='fan'?.78:w==='whip'?.85:1),w,kb,ang);
-  if(!m.dead&&!m.boss&&stun)m.stun=Math.max(m.stun,stun);
+  if(!m.dead&&!m.boss&&stun&&!enemyArmored(m))m.stun=Math.max(m.stun,stun);
 }
 /* 채찍은 원거리 전격을 발사하지 않는다. 기존 기술명·타격 범위는 유지. */
 function comboStrike(move,part){
@@ -4993,7 +5110,7 @@ addEventListener('visibilitychange',save);
     cutDefLoad();
     showScreen('title');
     $('load').remove();
-    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,switchPlayable,playableStats,combatWeapon,PLAY,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,hitMob,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx},CM_AUDIO,STAGE_PROPS,propReady,PROP_NAMES,DECOR_PROPS,decorReady,DECOR_NAMES,makeDecor};
+    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,switchPlayable,playableStats,combatWeapon,PLAY,ENEMY_PROFILES,ENEMY_PRESSURE,enemyContains,enemyStart,enemyArmored,updateMob,updateZones,updateShots,updateAllies,enemyHit,enemyChargeTick,createMob,hitMob,updatePlayer,comboPress,shots,zones,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,hitMob,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx},CM_AUDIO,STAGE_PROPS,propReady,PROP_NAMES,DECOR_PROPS,decorReady,DECOR_NAMES,makeDecor};
     requestAnimationFrame(loop);
   }catch(e){$('load').textContent='오류: '+e.message;console.error(e);}
 })();
