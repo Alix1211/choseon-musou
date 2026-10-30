@@ -86,5 +86,8 @@ if not os.environ.get('NOD'):
                      capture_output=True,text=True)
     assert r.returncode==0, ('approved runtime overlay failed',r.stdout,r.stderr)
     src=open(B+'index.html',encoding='utf-8').read()
+    # Apply balance after the approved overlay, which anchors older runtime text.
+    exec(open(B+'_new/p2balance.py',encoding='utf-8').read())
+    open(B+'index.html','w',encoding='utf-8').write(src)
 
 print('ok',len(src))
