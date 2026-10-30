@@ -1,4 +1,5 @@
 # Prototype only the first recruit. Keep original character imagery and motions.
+rep('<!-- CHOSEON_LIVE_UPDATE: 2026-10-30-baseT-sync-v1 -->','<!-- CHOSEON_LIVE_UPDATE: 2026-10-30-baseT-sync-v1 -->\n<!-- CHOSEON_GAME_REVISION: 20261030-zhenji-v1 -->')
 rep('<div id="tl">','<div id="tl"><button id="playerPortrait" title="초선 · 장비" aria-label="초선 · 장비"><img src="a/ui/pt/choseon.webp" alt=""><i></i></button>')
 rep('<button id="sk1" class="skb" disabled></button>', '<button id="allySwap" hidden disabled aria-label="견희 교체"><img src="a/ui/pt/zhenji.webp" alt=""><i></i></button>\n<button id="sk1" class="skb" disabled></button>')
 # Select the existing magic/fan combat model for Zhenji; gear values stay shared.
