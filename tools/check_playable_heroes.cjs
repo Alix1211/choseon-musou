@@ -31,6 +31,7 @@ function app(){
    bagOpen:false,bagDirty:false,time:1,hurtFlash:0,saveCount:0,voiceStops:0,
    recalc(){},startStage(){},gainExp(v){ctx.baseXP=(ctx.baseXP||0)+v;},
    heroExp(id,v){(ctx.expHits||(ctx.expHits=[])).push([id,v]);},
+   stepMove(vx,vy,sp,dt){ctx.lastMoveSpeed=sp;},
    allyStatOf(id){const p=ctx.HPERS[id]||[1,1,1];return {hp:1200*p[0],atk:100*p[1],sp:p[2]};},
    addAlly(id,x,y){const aStat=ctx.allyStatOf(id);const a={type:id,x,y,hp:aStat.hp,maxHp:aStat.hp,down:false,dead:false,playCooldown:null};ctx.allies.push(a);return a;},
    updateAllies(){},drawPlayer(){ctx.choseonDraws=(ctx.choseonDraws||0)+1;},
@@ -62,6 +63,8 @@ for(const id of ids){
  const hpBefore=ctx.P.hp/ctx.stat.maxHp(),cdBefore=ctx.P.skCd.slice();
  check(t.switchPlayable(id),id+' enters the player slot');
  check(t.PLAY.active===id&&t.combatWeapon()===family[id],id+' controls the expected weapon');
+ ctx.stepMove(1,0,270,1/60);
+ check(Math.abs(ctx.lastMoveSpeed-270*hp[id][2])<1e-8,id+' basic speed disposition');
  check(Math.abs(ctx.P.hp/ctx.stat.maxHp()-.52)<1e-7,id+' switched HP ratio is preserved');
  check(JSON.stringify(ctx.P.skCd)==='[12,3]'&&ctx.P.spinCd===5,id+' saved cooldown restores');
  check(ctx.allies.length===1&&ctx.allies[0].type==='choseon',id+' original character returns to AI without an extra slot');
@@ -79,6 +82,8 @@ for(const id of ids){
  ctx.P.skCd=[4,1];ctx.P.spinCd=2;ctx.P.hp=ctx.stat.maxHp()*.4;
  check(t.switchPlayable('choseon'),id+' switches back without making a new character');
  check(Math.abs(ctx.P.hp/ctx.stat.maxHp()-hpBefore)<1e-7,id+' Choseon health restored from her own slot');
+ ctx.stepMove(1,0,270,1/60);
+ check(Math.abs(ctx.lastMoveSpeed-270)<1e-8,id+' Choseon basic speed remains unchanged');
  check(JSON.stringify(ctx.P.skCd)===JSON.stringify(cdBefore),id+' Choseon cooldown restored');
  check(ctx.allies.length===1&&ctx.allies[0].type===id,id+' companion AI roster returns');
  check(JSON.stringify(ctx.allies[0].playCooldown.skCd)==='[4,1]',id+' companion cooldown saved');

@@ -26,6 +26,13 @@ function nextPlayable(){
   }
   return null;
 }
+function playableMoveSpeed(id=PLAY.active){
+  return id==='choseon'?1:(HPERS[id]?.[2]||1);
+}
+/* Basic movement speed uses each hero's existing [HP, ATK, SPEED] disposition.
+   Combo dash/skill speed remains the approved combat engine behavior. */
+const playableStepMoveBase=stepMove;
+stepMove=function(vx,vy,sp,dt){return playableStepMoveBase(vx,vy,sp*playableMoveSpeed(),dt);};
 function playableLevel(id=PLAY.active){return id==='choseon'?S.lv:heroLv(id);}
 function playableStats(id=PLAY.active){
   if(id==='choseon'||!PLAYABLE_HEROES[id])return ST;
