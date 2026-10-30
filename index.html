@@ -1,5 +1,6 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>삼국 초선 무쌍</title>
+<!-- CHOSEON_LIVE_UPDATE: 2026-10-30-melee-cloud-v1 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;--bg:#0e0a14;--panel:rgba(26,16,38,.86);--line:#5a4270;--ink:#f6ecff;--dim:#a893c0;--hot:#ff5aa5;--gold:#ffd36b;--off:#322a40;--hp:#e8456b}
@@ -3701,12 +3702,10 @@ function drawFx(){
   for(const f of fx){
     const u=f.t/f.life;
     if(f.k==='bolt'){
-      const al=1-u;cx.save();cx.lineCap='round';cx.shadowBlur=13;cx.shadowColor='rgba(95,193,255,.74)';
-      for(const [width,col] of [[9,'rgba(40,170,255,'+al*.35+')'],[4,'rgba(100,240,255,'+al*.85+')'],[1.5,'rgba(255,255,255,'+al+')']]){
-        cx.beginPath();cx.moveTo(f.x,f.y);
-        for(let i=1;i<7;i++){const q=i/7,off=Math.sin(q*23+f.x*.1+f.t*30)*16*(1-Math.abs(q-.5));cx.lineTo(f.x+(f.tx-f.x)*q+(f.y-f.ty)*off/Math.max(40,Math.hypot(f.tx-f.x,f.ty-f.y)),f.y+(f.ty-f.y)*q+(f.tx-f.x)*off/Math.max(40,Math.hypot(f.tx-f.x,f.ty-f.y)));}
-        cx.lineTo(f.tx,f.ty);cx.strokeStyle=col;cx.lineWidth=width;cx.stroke();
-      }cx.restore();
+      // Compatibility for older queued effects: local spark, no long-range bolt.
+      const al=Math.max(0,1-u);
+      cx.save();cx.strokeStyle='rgba(145,225,255,'+al*.65+')';cx.lineWidth=3;
+      cx.beginPath();cx.arc(f.x,f.y,18*u+7,0,Math.PI*1.6);cx.stroke();cx.restore();
     }else if(f.k==='slash'){
       // Avoid shadowBlur with layered arc segments: Android WebView may fall back
       // to an expensive software blur on every sword hit.
@@ -3925,7 +3924,7 @@ function comboDamage(m,power,kb,ang,stun){
   hitMob(m,stat.atk()*power*(w==='fan'?.78:w==='whip'?.85:1),w,kb,ang);
   if(!m.dead&&!m.boss&&stun)m.stun=Math.max(m.stun,stun);
 }
-function comboBolt(x,y,tx,ty){fx.push({k:'bolt',x,y,tx,ty,t:0,life:.23});}
+/* 채찍은 원거리 전격을 발사하지 않는다. 기존 기술명·타격 범위는 유지. */
 function comboStrike(move,part){
   const w=P.cbWeapon||ST.wt,a=P.cbAngle||0,px=P.x,py=P.y,ct=Math.cos(a),st=Math.sin(a),list=liveMobs();
   const radial=move==='spin'||move==='slam'||move==='rocks'||move==='dashHeavy';
@@ -3946,14 +3945,14 @@ function comboStrike(move,part){
     const fits=radial?d<radius+m.scale*12:move==='arc'?d<radius+m.scale*12&&delta<1.20:move==='dashLight'?d<radius+m.scale*12&&delta<.95:dot>0&&d<radius+m.scale*12&&delta<.58;
     if(!fits)continue;
     comboDamage(m,power,kb,da,move==='slam'?.9:move==='rocks'?1.2:move==='dashHeavy'?.4:w==='whip'?.45:0);
-    if(w==='whip')comboBolt(px,py-CH,m.x,m.y-40*m.scale);
+    /* 채찍은 근접 타격 궤적만 표시한다. */
   }
   if(move==='rocks')for(let i=0;i<19;i++){
     const q=i*Math.PI*2/19;
     fx.push({k:'deb',x:px+Math.cos(q)*rnd(10,60),y:py-18,vx:Math.cos(q)*rnd(90,330),vy:-rnd(120,380),t:0,life:rnd(.38,.7)});
-    if(w==='whip')comboBolt(px,py-CH,px+Math.cos(q)*140,py+Math.sin(q)*70);
+    /* 채찍은 근접 타격 궤적만 표시한다. */
   }
-  if(w==='whip'&&!list.length)comboBolt(px,py-CH,px+ct*radius,py+st*radius-CH);
+  /* 채찍은 근접 타격 궤적만 표시한다. */
   if(w==='fan')fx.push({k:'ring',x:px,y:py-25,t:0,life:.3,R:radius*.6});
   shake=Math.max(shake,move==='rocks'?10:move==='slam'?7:move==='dashHeavy'?5:3);
 }
@@ -3965,7 +3964,7 @@ function comboMoveTick(dt,prev,frame,total){
     for(const m of liveMobs()){
       if(P.cbRushHit.has(m)||Math.hypot(m.x-P.x,m.y-P.y)>100+m.scale*15)continue;
       P.cbRushHit.add(m);comboDamage(m,2.1,320,Math.atan2(m.y-P.y,m.x-P.x),P.cbWeapon==='whip'?.6:0);
-      if(P.cbWeapon==='whip')comboBolt(P.x,P.y-CH,m.x,m.y-35);
+      /* 채찍은 근접 타격 궤적만 표시한다. */
     }
   }else if(move==='dashLight'){
     const thresholds=[.23,.47,.71];
@@ -4301,7 +4300,7 @@ function renderTitle(){
       <div class="L tlogo"></div><div class="L tshine"></div>
       <button class="tb go" id="tb_go" data-a="tgo" style="left:49px;top:468px;width:572px;height:126px;background-image:url(a/ui/t_btn_go.webp)"></button>
       <button class="tb" id="tb_1" data-a="tcont" style="left:53px;top:588px;width:574px;height:127px;background-image:url(a/ui/t_btn_1.webp)">이어하기</button>
-      <button class="tb" id="tb_2" disabled style="left:53px;top:683px;width:574px;height:127px;background-image:url(a/ui/t_btn_2.webp)">설 정</button>
+      <button class="tb" id="tb_2" data-a="cloudmenu" style="left:53px;top:683px;width:574px;height:127px;background-image:url(a/ui/t_btn_2.webp)">설 정</button>
       <button class="tb" id="tb_3" disabled style="left:53px;top:778px;width:574px;height:127px;background-image:url(a/ui/t_btn_3.webp)">종 료</button>
       <canvas id="tpet" width="1672" height="941"></canvas>`;
     startPetals();
@@ -4310,6 +4309,16 @@ function renderTitle(){
   $('tb_go').textContent=UI.resetAsk?'정말 처음부터?':'게임 시작';
   $('tb_go').classList.toggle('ask',!!UI.resetAsk);
   $('tb_1').disabled=!hp;
+  const oldCloud=g.querySelector('#cloudPanel');if(oldCloud)oldCloud.remove();
+  if(UI.cloudMenu){
+    g.insertAdjacentHTML('beforeend',`<div class="pn sm" id="cloudPanel" style="left:630px;top:230px;width:770px;height:550px;z-index:8"><div class="in">
+      <div class="tt" style="position:absolute;top:38px;left:40px;font-size:43px;color:#fff4d6">저장 · 업데이트</div>
+      <div class="ln" style="left:40px;top:104px;width:680px;font-size:25px">새 게임 코드는 다음 실행 때 자동 확인합니다.<br>Drive 백업은 파일 선택 창에서 저장 위치를 지정하세요.</div>
+      <button class="bt gold" data-a="drivebackup" style="left:50px;top:220px;width:310px;height:88px;font-size:29px">Drive에 백업</button>
+      <button class="bt" data-a="driverestore" style="left:405px;top:220px;width:310px;height:88px;font-size:29px">Drive에서 복원</button>
+      <button class="bt" data-a="cloudclose" style="left:205px;top:365px;width:340px;height:94px;font-size:29px">닫기</button>
+    </div></div>`);
+  }
 }
 /* 벚꽃잎과 반짝임 (시작 화면이 보일 때만 그린다) */
 function startPetals(){
@@ -4570,9 +4579,11 @@ function endStage(){
 function pauseGame(on){
   if(UI.mode!=='battle')return;
   UI.paused=on;$('s_pz').hidden=!on;
-  if(on){$('g_pz').innerHTML=`<div class="pn sm" style="left:520px;top:300px;width:560px;height:400px"><div class="in"><div class="f1" style="position:absolute;left:0;right:0;top:44px;text-align:center;font:400 54px var(--f1);color:#fff3cf">일시정지</div>
-    <button class="bt gold" data-a="resume" style="left:100px;top:140px;width:360px;height:100px;font-size:36px">계 속</button>
-    <button class="bt" data-a="retreat" style="left:100px;top:260px;width:360px;height:100px;font-size:36px">철 수</button></div></div>`;fitUI();}
+  if(on){$('g_pz').innerHTML=`<div class="pn sm" style="left:520px;top:210px;width:560px;height:575px"><div class="in"><div class="f1" style="position:absolute;left:0;right:0;top:44px;text-align:center;font:400 54px var(--f1);color:#fff3cf">일시정지</div>
+    <button class="bt gold" data-a="resume" style="left:100px;top:115px;width:360px;height:84px;font-size:33px">계 속</button>
+    <button class="bt" data-a="retreat" style="left:100px;top:213px;width:360px;height:84px;font-size:33px">철 수</button>
+    <button class="bt" data-a="drivebackup" style="left:100px;top:311px;width:360px;height:84px;font-size:29px">Drive 저장</button>
+    <button class="bt" data-a="driverestore" style="left:100px;top:409px;width:360px;height:84px;font-size:29px">Drive 불러오기</button></div></div>`;fitUI();}
 }
 function bark(kind){
   if(!P||UI.mode!=='battle')return;
@@ -4588,6 +4599,10 @@ function bark(kind){
 
 /* ── 동작 ── */
 const ACT={
+  cloudmenu(){UI.cloudMenu=!UI.cloudMenu;renderTitle();},
+  cloudclose(){UI.cloudMenu=false;renderTitle();},
+  drivebackup(){if(window.ChoseonCloud)window.ChoseonCloud.backup();},
+  driverestore(){if(window.ChoseonCloud)window.ChoseonCloud.restore();},
   go(){showScreen('bar');},
   tgo(){if(!hasProg()){showScreen('bar');return;}ACT.reset();},tcont(){if(hasProg())showScreen('bar');},
   reset(){if(!UI.resetAsk){UI.resetAsk=true;renderTitle();setTimeout(()=>{if(UI.resetAsk){UI.resetAsk=false;if(UI.mode==='title')renderTitle();}},6000);}else{window.__noSave=1;try{localStorage.removeItem(SAVEKEY);}catch(e){}try{localStorage.clear();}catch(e){}location.reload();}},
@@ -4705,4 +4720,117 @@ addEventListener('visibilitychange',save);
     requestAnimationFrame(loop);
   }catch(e){$('load').textContent='오류: '+e.message;console.error(e);}
 })();
+</script>
+<script>
+/* Choseon Musou: user-authorized Android Storage Access Framework backup.
+ * No Google account credentials or automatic restore. Native bridge persists the
+ * user-selected URI. Existing appassets origin and game save key stay unchanged.
+ */
+(function(){
+  'use strict';
+  const GAME='choseon-musou',KEY='choseon_musou_v2',AUDIO='choseon_audio';
+  let working=false, autoBusy=false, lastAutomatic=0;
+  const native=()=>window.ChoseonNative&&typeof window.ChoseonNative.createBackup==='function';
+  function note(message){
+    let out=document.getElementById('cloudStatus');
+    if(!out){out=document.createElement('div');out.id='cloudStatus';out.style.cssText='position:fixed;left:50%;bottom:22%;transform:translateX(-50%);max-width:85%;z-index:99999;padding:12px 24px;border:1px solid #f3d48b;border-radius:12px;background:#21182c;color:#fff4d5;font:bold 18px system-ui;text-align:center;pointer-events:none';document.body.appendChild(out);}
+    out.textContent=String(message);out.hidden=false;
+    clearTimeout(note.timer);note.timer=setTimeout(()=>{out.hidden=true;},4300);
+  }
+  const readDefaultCut=async()=>{
+    if(typeof cutDB!=='function')return null;
+    try{
+      const db=await cutDB();
+      const blob=await new Promise((resolve,reject)=>{
+        const tx=db.transaction('k','readonly');
+        const req=tx.objectStore('k').get('def');
+        req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
+      });
+      if(!(blob instanceof Blob))return null;
+      if(blob.size>8*1024*1024)throw Error('기본 이미지가 8MB를 넘어 별도 보관해야 합니다');
+      return await new Promise((resolve,reject)=>{
+        const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+    }catch(e){throw Error('기본 일러스트를 읽지 못했습니다: '+e.message);}
+  };
+  async function snapshot(){
+    if(typeof save==='function')save();
+    const game=localStorage.getItem(KEY);
+    if(!game)throw Error('저장된 게임이 없습니다');
+    const state=JSON.parse(game);
+    if(!state||!state.eq||typeof state.lv!=='number')throw Error('게임 저장 데이터가 올바르지 않습니다');
+    const doc={format:'choseon-musou-drive-backup',schema:1,createdAt:new Date().toISOString(),
+      game, audio:localStorage.getItem(AUDIO)||null,
+      defaultCut:await readDefaultCut()};
+    const json=JSON.stringify(doc);
+    if(json.length>12*1024*1024)throw Error('백업이 너무 큽니다. 기본 이미지를 더 작은 파일로 바꿔주세요');
+    return json;
+  }
+  async function backup(){
+    if(working)return;
+    working=true;
+    try{
+      const data=await snapshot();
+      if(native()){window.ChoseonNative.createBackup(data);note('Android 저장 창에서 Google Drive를 선택하세요');}
+      else{
+        const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob);
+        const a=document.createElement('a');a.href=url;a.download='Choseon-Musou-Save.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),12000);
+        note('저장 파일을 내려받았습니다. Google Drive에 올려주세요');
+      }
+    }catch(e){note('백업 실패: '+e.message);}finally{working=false;}
+  }
+  function restore(){
+    if(native()){
+      window.ChoseonNative.openBackup();note('Android 파일 창에서 Google Drive의 저장 파일을 선택하세요');
+    }else{
+      const f=document.createElement('input');f.type='file';f.accept='.json,application/json';
+      f.onchange=()=>{if(!f.files.length)return;f.files[0].text().then(importJson).catch(e=>note(e.message));};f.click();
+    }
+  }
+  async function importJson(text){
+    let obj;
+    try{obj=JSON.parse(text);}catch(e){note('저장 파일을 읽을 수 없습니다');return;}
+    if(!obj||obj.format!=='choseon-musou-drive-backup'||obj.schema!==1||typeof obj.game!=='string'){
+      note('초선무쌍 저장 파일이 아닙니다');return;
+    }
+    let state;
+    try{state=JSON.parse(obj.game);}catch(e){note('게임 저장이 손상됐습니다');return;}
+    if(!state||typeof state.lv!=='number'||state.lv<1||state.lv>200||typeof state.stage!=='number'||!state.eq||!state.cl){note('잘못된 게임 진행 데이터입니다');return;}
+    const yes=window.confirm('Google Drive 저장으로 현재 진행을 교체하시겠습니까?\n현재 저장을 기기에 안전 복사한 후 복원합니다.');
+    if(!yes){note('불러오기를 취소했습니다');return;}
+    try{
+      const before=localStorage.getItem(KEY);
+      if(before)localStorage.setItem('choseon_backup_before_drive_restore',before);
+      if(obj.defaultCut){
+        if(typeof obj.defaultCut!=='string'||!obj.defaultCut.startsWith('data:image/')||obj.defaultCut.length>13*1024*1024)throw Error('기본 일러스트 데이터가 유효하지 않습니다');
+        const blob=await (await fetch(obj.defaultCut)).blob();
+        const db=await cutDB();
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction('k','readwrite');tx.objectStore('k').put(blob,'def');
+          tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+        });
+      }
+      localStorage.setItem(KEY,obj.game);
+      if(typeof obj.audio==='string')localStorage.setItem(AUDIO,obj.audio);
+      note('저장 복원 완료. 게임을 다시 시작합니다');
+      setTimeout(()=>location.reload(),700);
+    }catch(e){note('복원 실패: '+e.message);}
+  }
+  async function autoBackup(){
+    if(autoBusy||!native()||typeof window.ChoseonNative.hasBackupFile!=='function'||!window.ChoseonNative.hasBackupFile())return;
+    if(Date.now()-lastAutomatic<120000)return;
+    lastAutomatic=Date.now();autoBusy=true;
+    try{window.ChoseonNative.autoBackup(await snapshot());}
+    catch(e){console.warn('자동 백업 건너뜀:',e.message);}
+    finally{autoBusy=false;}
+  }
+  window.ChoseonCloud={backup,restore,importJson,note,autoBackup,
+    onNativeStatus(ok,message){note((ok?'':'확인: ')+String(message));},
+    get mode(){return native()?'Android 파일 선택 방식':'웹 파일 방식';}};
+  // After the user chooses a Drive file once, keep that document updated every
+  // two minutes. Never overwrite a remote file before the user binds it.
+  setInterval(autoBackup,120000);
+})();
+
 </script>

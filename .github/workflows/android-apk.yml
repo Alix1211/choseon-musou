@@ -30,6 +30,8 @@ jobs:
           gradle-version: '8.7'
       - name: Validate lightweight Canvas effects
         run: node tools/check_fx_budget.cjs
+      - name: Check safe live updates and Drive backup wiring
+        run: node tools/check_live_cloud.cjs
       - name: Build installable debug APK
         working-directory: android
         run: gradle --no-daemon --stacktrace assembleDebug
