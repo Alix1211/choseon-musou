@@ -3576,30 +3576,38 @@ function drawProp(p){
 }
 function glow(x,y,r,c0,c1){const g=cx.createRadialGradient(x,y,1,x,y,r);g.addColorStop(0,c0);g.addColorStop(1,c1);cx.fillStyle=g;cx.beginPath();cx.arc(x,y,r,0,7);cx.fill();}
 function arcBand(x,y,a0,a1,R,thick,headU,alphaMul,tailPow){
-  // 끝이 가늘어지는 초승달 띠: 머리(headU)가 가장 밝고 꼬리로 갈수록 투명
-  const N=26;
-  for(let i=0;i<N;i++){
-    const u0=i/N,u1=(i+1)/N;if(u0>headU)break;
-    const ua=Math.min(u1,headU),al=Math.pow(u1/Math.max(headU,.001),tailPow||2)*alphaMul;
-    const A0=lerp(a0,a1,u0),A1=lerp(a0,a1,ua),th0=Math.sin(Math.PI*Math.min(1,u0/.95))*thick,th1=Math.sin(Math.PI*Math.min(1,ua/.95))*thick;
+  // Mobile Canvas: fewer feathered slices; keeps the curved blade trail without
+  // forcing 26 individually blended paths for each stroke on every animation frame.
+  const N=10,visible=Math.min(N,Math.ceil(Math.max(0,headU)*N));
+  for(let i=0;i<visible;i++){
+    const u0=i/N,u1=Math.min((i+1)/N,headU);
+    if(u1<=u0)continue;
+    const al=Math.pow(u1/Math.max(headU,.001),tailPow||2)*alphaMul;
+    const A0=lerp(a0,a1,u0),A1=lerp(a0,a1,u1);
+    const th1=Math.sin(Math.PI*Math.min(1,u1/.95))*thick;
     cx.fillStyle='rgba(255,'+(((200+55*(u1/Math.max(headU,.01)))|0))+',235,'+al+')';
-    cx.beginPath();
-    cx.arc(x,y,R,A0,A1);cx.arc(x,y,Math.max(1,R-th1),A1,A0,true);cx.closePath();cx.fill();
+    cx.beginPath();cx.arc(x,y,R,A0,A1);
+    cx.arc(x,y,Math.max(1,R-th1),A1,A0,true);cx.closePath();cx.fill();
   }
 }
 
 function featherSweep(f,u){
-  const N=32,r=f.R,ha=f.ha,outer=f.col||'190,120,255';
+  // A single radial gradient replaces 32 overlapping translucent sectors.
+  // Damage cones and hit detection remain unchanged; only pixels are cheaper.
+  const r=f.R,ha=f.ha,outer=f.col||'190,120,255',fade=Math.max(0,1-u);
+  if(fade<=0)return;
   cx.save();cx.translate(f.x,f.y);cx.scale(1,YR);
   const g=cx.createRadialGradient(0,0,r*.14,0,0,r);
-  g.addColorStop(0,'rgba('+outer+',.15)');g.addColorStop(.50,'rgba('+outer+',.36)');
-  g.addColorStop(.77,'rgba('+outer+',.19)');g.addColorStop(1,'rgba('+outer+',0)');
-  for(let i=0;i<N;i++){
-    const v=(i+.5)/N,soft=Math.pow(Math.sin(Math.PI*v),.8)*(1-u);
-    cx.globalAlpha=soft;cx.fillStyle=g;cx.beginPath();cx.moveTo(0,0);
-    cx.arc(0,0,r,f.a-ha+ha*2*i/N-.002,f.a-ha+ha*2*(i+1)/N+.002);cx.closePath();cx.fill();
-  }cx.restore();
+  g.addColorStop(0,'rgba('+outer+',.15)');
+  g.addColorStop(.50,'rgba('+outer+',.36)');
+  g.addColorStop(.77,'rgba('+outer+',.19)');
+  g.addColorStop(1,'rgba('+outer+',0)');
+  cx.globalAlpha=fade*.9;cx.fillStyle=g;
+  cx.beginPath();cx.moveTo(0,0);cx.arc(0,0,r,f.a-ha,f.a+ha);
+  cx.closePath();cx.fill();
+  cx.restore();
 }
+
 function featherRing(f,u){
   const r=f.R*easeOut(u),col=f.col||'255,160,235';
   cx.save();cx.translate(f.x,f.y+34);cx.scale(1,.55);cx.globalCompositeOperation='lighter';
@@ -3622,12 +3630,14 @@ function drawFx(){
         cx.lineTo(f.tx,f.ty);cx.strokeStyle=col;cx.lineWidth=width;cx.stroke();
       }cx.restore();
     }else if(f.k==='slash'){
-      cx.save();cx.shadowBlur=17;cx.shadowColor='rgba(255,216,251,.65)';cx.globalAlpha=.72;
-      const sweep=Math.min(1,f.t/.12),fadeA=f.t<.12?1:1-(f.t-.12)/(f.life-.12);
+      // Avoid shadowBlur with layered arc segments: Android WebView may fall back
+      // to an expensive software blur on every sword hit.
+      cx.save();cx.globalAlpha=.82;
+      const sweep=Math.min(1,f.t/.12),fadeA=f.t<.12?1:Math.max(0,1-(f.t-.12)/(f.life-.12));
       const half=f.small?.7:1.15,a0=f.a-half,a1=f.a+half;
-      // 바깥 번짐 + 안쪽 흰 날
-      arcBand(f.x,f.y,a0,a1,f.R,f.R*(f.small?.3:.36),easeOut(sweep),.55*fadeA,1.6);
-      arcBand(f.x,f.y,a0,a1,f.R-4,f.R*(f.small?.12:.16),easeOut(sweep),.77*fadeA,2.2);cx.restore();
+      arcBand(f.x,f.y,a0,a1,f.R,f.R*(f.small?.3:.36),easeOut(sweep),.54*fadeA,1.6);
+      arcBand(f.x,f.y,a0,a1,f.R-4,f.R*(f.small?.12:.16),easeOut(sweep),.8*fadeA,2.2);
+      cx.restore();
     }else if(f.k==='whip'){
       cx.save();cx.shadowBlur=12;cx.shadowColor='rgba(255,145,218,.7)';
       const ext=easeOut(Math.min(1,f.t/.09)),fadeA=f.t<.1?1:1-(f.t-.1)/(f.life-.1),L=f.L*ext;

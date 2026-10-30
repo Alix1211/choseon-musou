@@ -27,6 +27,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Validate lightweight Canvas effects
+        run: node tools/check_fx_budget.cjs
       - name: Build installable debug APK
         working-directory: android
         run: gradle --no-daemon --stacktrace assembleDebug
