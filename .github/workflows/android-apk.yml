@@ -46,6 +46,8 @@ jobs:
           retention-days: 3
       - name: Test real whip hit functions vs visual range
         run: node tools/test_whip_reach.cjs
+      - name: Test all nine playable heroines and two-member party swapping
+        run: node tools/check_playable_heroes.cjs
       - name: Validate lightweight Canvas effects
         run: node tools/check_fx_budget.cjs
       - name: Check safe live updates and Drive backup wiring
