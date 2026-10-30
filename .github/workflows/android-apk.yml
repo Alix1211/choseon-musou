@@ -6,6 +6,7 @@ on:
     paths:
       - 'android/**'
       - 'index.html'
+      - '_new/**'
       - 'a/**'
       - 'tools/**'
       - '.github/workflows/android-apk.yml'
