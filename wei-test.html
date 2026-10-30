@@ -2088,7 +2088,7 @@ function buildKan(run,idx,carry){
       run,idx,sp,exit:null,blocks:[],chests:[],jars:[],k0:carry?carry.k0:0,replay:carry?carry.replay:false,ended:false,transT:0};
     M=m;mobs.length=0;shots.length=0;fx.length=0;pops.length=0;orbs.length=0;zones.length=0;wards.length=0;pks.length=0;
     // 소품 → 가구 막기
-    m.props=genKanProps(m,L,sp);addBlocks(m);m.props.sort((a,b)=>a.y-b.y);
+    m.props=genKanProps(m,L,sp);addBlocks(m);m.props.sort((a,b)=>a.y-b.y);m.decors=makeDecor(m,L);
     m.jarList=m.props.filter(p=>p.jar);m.chests=m.props.filter(p=>p.chest);
     m.seen=L.wide();   // 너비 2칸 이상으로 이어진 칸에만 부대·영웅이 선다
     // 출구 문
@@ -3100,6 +3100,79 @@ WEI_RULES[18].draw=WEI_RULES[6].draw;
 WEI_RULES[19].draw=function(){for(const q of M.wei.people){propSprite('npc'+q.id,q.x,q.y,65,100);weiMark(q,q.checked?'확인 완료':'성안 사람 '+q.id,q.checked?'#89949d':'#9ae1c8');}};
 WEI_RULES[20].draw=function(){const w=M.wei;for(let i=0;i<w.path.length;i++){const p=w.path[i];if(M.D.g[Math.floor(p.y/TS)][Math.floor(p.x/TS)]!==1)continue;propSprite(i<w.collapsed?'bridge_broken':'bridge',p.x,p.y+TS*.55,TS*1.4,TS*1.15);}for(let i=0;i<3;i++)weiMark(w.checkpoints[i],i===2?'다리 출구':'경유지 '+(i+1),i<w.index?'#80dfb3':'#ffd36b',70);};
 
+/* Chinese Three Kingdoms decoration: visual-only, no new collision or mission rules. */
+const DECOR_NAMES='wei_flag wei_tent wei_arms wei_supply wei_palisade wei_drum wu_flag wu_tent wu_naval shu_flag shu_tent shu_gong han_bed han_table han_jars han_screen han_lanterns han_incense'.split(' ');
+const DECOR_PROPS={};
+const decorReady=Promise.all(DECOR_NAMES.map(n=>new Promise((resolve,reject)=>{
+  const im=new Image();
+  im.onload=()=>{DECOR_PROPS[n]=im;resolve();};
+  im.onerror=()=>reject(Error('decor load: '+n));
+  im.src='a/decor_props/'+n+'.png';
+})));decorReady.catch(console.error);
+
+function decorNation(stage,room){
+  if(stage<=10)return 'wei';
+  if(stage<=20)return 'wu';
+  if(stage<=30)return 'shu';
+  return ['wei','wu','shu'][(room+stage)%3];
+}
+function decorDraw(key,x,y,w){
+  const im=DECOR_PROPS[key];if(!im)return false;
+  const h=w*im.height/im.width;
+  cx.drawImage(im,x-w/2,y-h,w,h);
+  return true;
+}
+function decorHash(a,b,c){
+  let v=(Math.imul(a|0,73856093)^Math.imul(b|0,19349663)^Math.imul(c|0,83492791))>>>0;
+  v=Math.imul(v^(v>>>16),2246822507)>>>0;
+  return ((v^(v>>>13))>>>0)/4294967296;
+}
+
+// One or two anchored military accents per clearing; avoid the starting point,
+// existing object silhouettes, and all blocked cells. Never touch Math.random.
+function makeDecor(m,L){
+  if(m.sty!=='out'&&m.sty!=='yard')return [];
+  const out=[],g=m.D.g;
+  const slots=[[-.55,-.48],[.55,-.48],[-.55,.48],[.55,.48],[0,-.65],[0,.65]];
+  const rooms=L.rooms.filter(r=>!r.keep);
+  for(const r of rooms){
+    const role=r===L.st?'flag':r.idx%5===0?'tent':r.idx%3===0?'supply':r.idx%2===0?'flag':null;
+    if(!role)continue;
+    const nation=decorNation(m.n,r.idx),key=role==='flag'?nation+'_flag':role==='tent'?nation+'_tent':nation==='wei'?'wei_supply':nation==='wu'?'wu_naval':'shu_gong';
+    const w=role==='flag'?78:role==='tent'?132:100;
+    const start=Math.floor(decorHash(m.n,m.idx,r.idx)*slots.length);
+    for(let i=0;i<slots.length;i++){
+      const [u,v]=slots[(start+i)%slots.length],x=(r.cx+u*r.rx)*TS,y=(r.cy+v*r.ry)*TS;
+      const tx=Math.floor(x/TS),ty=Math.floor(y/TS);
+      if(!g[ty]||g[ty][tx]!==1)continue;
+      // In the first room, never cover the player's arrival at its center.
+      if(r===L.st&&Math.hypot(x-r.cx*TS,y-r.cy*TS)<TS*2.2)continue;
+      if(m.props.some(p=>Math.hypot(p.x-x,p.y-y)<Math.max(52,(p.gw+w)*.42)))continue;
+      if(out.some(p=>Math.hypot(p.x-x,p.y-y)<(p.w+w)*.6))continue;
+      out.push({key,x,y,w});break;
+    }
+  }
+  return out;
+}
+
+function drawChineseFurniture(p){
+  if(!M||!M.musou)return false;
+  let key=null,w=p.gw;
+  if(M.sty==='hall'){
+    if(/^i_bed_/.test(p.k)){key='han_bed';w=98;}
+    else if(['i_desk','i_table_round','i_table_feast'].includes(p.k)){key='han_table';w=Math.max(88,p.gw);}
+    else if(p.k==='i_vase'||p.k==='i_barrels'){key='han_jars';w=p.k==='i_vase'?55:78;}
+    else if(p.k==='i_board'||p.k==='i_mapboard'){key='han_screen';w=86;}
+    else if(p.k==='i_lantern'){key='han_lanterns';w=62;}
+    else if(p.k==='i_candelabra'){key='han_incense';w=54;}
+  }else if(M.sty==='yard'){
+    const nation=decorNation(M.n,Math.floor(p.x/TS));
+    if(p.k==='i_weaponrack'){key=nation==='wei'?'wei_arms':nation==='wu'?'wu_naval':'shu_gong';w=90;}
+    else if(p.k==='i_barrels'||p.k==='i_crates'){key=nation==='wei'?'wei_supply':nation==='wu'?'wu_naval':'shu_gong';w=92;}
+  }
+  return key?decorDraw(key,p.x,p.y,w):false;
+}
+
 function drawGateLegacy(gt){
   const k=gt.open?easeOut(gt.t):0;if(k>=1)return;
   const x0=gt.x0*TS,y0=gt.y0*TS,w=(gt.x1-gt.x0+1)*TS,h=(gt.y1-gt.y0+1)*TS,E=70*(1-k);
@@ -3442,6 +3515,7 @@ function drawGhost(s){
 }
 
 function drawProp(p){
+  if(drawChineseFurniture(p))return;
   const r=A.pj[p.k];
   if(p.torch){
     const fl=.8+Math.sin(time*9+p.x)*.2;
@@ -3554,6 +3628,7 @@ function render(){
   // 바닥에 붙는 소품(뼈·거미줄) 먼저
   const draws=[];
   for(const p of M.props){if(p.dead||p.x<x0-200||p.x>x0+vw+200||p.y<y0-40||p.y>y0+vh+360)continue;if(p.flat){drawProp(p);continue;}draws.push({y:p.y,f:()=>drawProp(p)});}
+  for(const d of (M.decors||[])){if(d.x<x0-160||d.x>x0+vw+160||d.y<y0-140||d.y>y0+vh+200)continue;const tx=Math.floor(d.x/TS),ty=Math.floor(d.y/TS);if(M.tk[ty*M.W+tx]===5)continue;draws.push({y:d.y,f:()=>decorDraw(d.key,d.x,d.y,d.w)});}
   drawZones();drawVents();drawWards();drawLeaderAuras(x0,y0,vw,vh);
   if(M.musou){if(M.exit)draws.push({y:(M.exit.y+1)*TS-30,f:()=>drawExit(M.exit)});drawPickups();for(const gt of M.gates)draws.push({y:(gt.y1+1)*TS,f:()=>drawGate(gt)});for(const a of allies)draws.push({y:a.y,f:()=>drawMob(a)});}
   for(const m of mobs){if(m.x<x0-120||m.x>x0+vw+120||m.y<y0-60||m.y>y0+vh+200)continue;draws.push({y:m.y,f:()=>drawMob(m)});}
@@ -4170,7 +4245,7 @@ addEventListener('visibilitychange',save);
     cutDefLoad();
     showScreen('title');
     $('load').remove();
-    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,hitMob,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx},CM_AUDIO,STAGE_PROPS,propReady,PROP_NAMES};
+    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,hitMob,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx},CM_AUDIO,STAGE_PROPS,propReady,PROP_NAMES,DECOR_PROPS,decorReady,DECOR_NAMES,makeDecor};
     requestAnimationFrame(loop);
   }catch(e){$('load').textContent='오류: '+e.message;console.error(e);}
 })();
