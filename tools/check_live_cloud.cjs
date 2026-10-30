@@ -11,7 +11,7 @@ assert(html.includes('function onConflict(remote,local)'));
 assert(html.includes("KEY='choseon_musou_v2'"));
 assert(!html.includes('function comboBolt('),'Long-range whip bolt must be removed');
 assert(!/comboBolt\(/.test(html),'No long-range whip bolts in combat');
-assert(html.includes('REACH={sword:146,whip:205,fan:600}'),'Keep whip broader than sword');
+assert(html.includes('REACH={sword:146,whip:170,fan:600}'),'Keep whip broader than sword');
 assert(html.includes("hitMob(m,base*.85,'whip'"),'Whip should stay lower power');
 assert(html.includes('무쌍난무')&&html.includes("CM_AUDIO.playVoice('skill_'+w"),'Existing move names and voice hooks must remain');
 assert(main.includes('https://raw.githubusercontent.com/Alix1211/choseon-musou/mobile-live/index.html'));
