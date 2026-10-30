@@ -62,8 +62,7 @@ rep("    }else if(f.k==='whip'){\n      const ext=",
     "    }else if(f.k==='whip'){\n      cx.save();cx.shadowBlur=12;cx.shadowColor='rgba(255,145,218,.7)';\n      const ext=")
 rep("      const tp=pts[20];glow(tp[0],tp[1],26*fadeA+4,'rgba(255,255,255,'+.9*fadeA+')','rgba(255,90,170,0)');",
     "      const tp=pts[20];glow(tp[0],tp[1],26*fadeA+4,'rgba(255,255,255,'+.7*fadeA+')','rgba(255,90,170,0)');cx.restore();")
-rep("      const al=1-u;cx.save();cx.lineCap='round';",
-    "      const al=1-u;cx.save();cx.lineCap='round';cx.shadowBlur=13;cx.shadowColor='rgba(95,193,255,.74)';")
+# Ranged bolt rendering was removed with melee-only whip; do not reintroduce it.
 
 css=r"""
 /* 이번 패치: 강/약공격 좌우 변경, 작은 무쌍, 동료 버튼 분리. */
