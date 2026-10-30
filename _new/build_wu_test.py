@@ -13,6 +13,6 @@ const wuButton=document.getElementById('wuGo');
 wuButton.onclick=()=>{G.UI.paused=false;document.getElementById('s_pz').hidden=true;G.startStage(Number(document.getElementById('wuPick').value),1);};
 setInterval(()=>{wuButton.disabled=!window.G;document.getElementById('wuTest').style.display=!!window.G&&G.UI.mode!=='title'&&!G.UI.paused?'none':'flex';},200);
 </script>'''.replace('OPTIONS',options)
-base='https://raw.githubusercontent.com/Alix1211/choseon-musou/0c89b8b4bc2c7b938195fb78b89bff84893f6110/'
+base='https://raw.githubusercontent.com/Alix1211/choseon-musou/gpt-gimmicks/'
 (root/'wu-test.html').write_text('<!doctype html><html><head><meta charset="utf-8"><base href="'+base+'">\n'+src+bar+'</body></html>')
 print('wu-test.html 생성 완료')

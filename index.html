@@ -2367,7 +2367,7 @@ function gim05Tick(dt){
   m.guard=c.lead;wakeColony(c);m.mis='guard';
   showBanner('방어 성공 · 수문장을 제압하라',2.4);
 }
-function drawGim05(){
+function drawGim05Legacy(){
   const d=M.defense05;if(!d||M.mis!=='defend05')return;
   cx.save();cx.strokeStyle='#ffd36b';cx.lineWidth=4;cx.setLineDash([16,12]);
   cx.beginPath();cx.arc(d.x,d.y,d.r,0,Math.PI*2);cx.stroke();cx.setLineDash([]);
@@ -2415,7 +2415,7 @@ function weiFindGate(m){
  throw new Error(m.n+'판 우회 가능한 문 위치 없음');
 }
 function weiGateSet(gate,open){gate.open=open;for(const [x,y,tk]of gate.cells){M.D.g[y][x]=open?1:0;M.tk[y*M.W+x]=open?tk:0;}M.chunks.clear();M.flow=null;}
-function weiDrawGate(g,label){if(g.open)return;weiMark(g,label,'#b7b3c9',55);cx.save();cx.fillStyle='#645e70';cx.fillRect(g.x-55,g.y-100,110,95);cx.strokeStyle='#aaa0ad';cx.lineWidth=4;for(let i=0;i<4;i++)cx.strokeRect(g.x-55+(i%2?12:0),g.y-100+i*24,95,24);cx.restore();}
+function weiDrawGateLegacy(g,label){if(g.open)return;weiMark(g,label,'#b7b3c9',55);cx.save();cx.fillStyle='#645e70';cx.fillRect(g.x-55,g.y-100,110,95);cx.strokeStyle='#aaa0ad';cx.lineWidth=4;for(let i=0;i<4;i++)cx.strokeRect(g.x-55+(i%2?12:0),g.y-100+i*24,95,24);cx.restore();}
 /* 4판 허저: 막다른 보급창 두 곳에 공격으로 불을 붙인다. */
 WEI_RULES[4]={
  init(m){m.wei.depots=weiPoints(m,2).map(p=>({...p,burning:0,burnt:false}));},
@@ -2639,7 +2639,7 @@ function gimTick(dt){
   if(t.list.every(q=>q.captured)){m.mis='exit';openExit();}
   return false;
 }
-function drawGimmicks(){
+function drawGimmicksLegacy(){
   weiDraw();
   drawGim05();
   if(!M.towers)return;
@@ -2686,7 +2686,7 @@ function missionTick(dt){
   tickRevive(dt);
 }
 /* ───────── 출구 문 그리기 ───────── */
-function drawExit(e){
+function drawExitLegacy(e){
   const x0=e.x0*TS,w=(e.x1-e.x0+1)*TS,yb=(e.y+1)*TS,h=TS*2.3,k=e.open?easeOut(e.t):0,cxm=x0+w/2,art=e.art;
   const pul=.5+.5*Math.sin(time*5);
   cx.save();
@@ -3074,7 +3074,32 @@ function findPath(){
 }
 
 /* ───────── 그리기 : 성문 · 봉화대 · 길 안내 · 표식 ───────── */
-function drawGate(gt){
+/* Generated game props: presentation only; mission/collision state stays authoritative. */
+const STAGE_PROPS={};
+const PROP_NAMES='jar lever_off plate_off torch_on stone_on chain_on jar_broken lever_on plate_on torch_off stone_off chain_off supply supply_burnt barricade barricade_broken bridge bridge_broken gate_open door_closed door_open bars_closed bars_open cave stairs_up stairs_down inner_gate flag_red flag_blue beacon_on beacon_off boat_off trap npc1 npc2 npc3 tower gate_closed boat_on'.split(' ');
+const propReady=Promise.all(PROP_NAMES.map(n=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{STAGE_PROPS[n]=im;resolve();};im.onerror=()=>reject(Error('prop load: '+n));im.src='a/stage_props/'+n+'.png';})));propReady.catch(console.error);
+function propSprite(n,x,y,w,h){const im=STAGE_PROPS[n];if(!im)return;h=h||w*im.height/im.width;cx.drawImage(im,x-w/2,y-h,w,h);}
+function drawGate(gt){const k=gt.open?easeOut(gt.t):0;if(k>=1)return;const w=(gt.x1-gt.x0+1)*TS,h=(gt.y1-gt.y0+1)*TS;cx.save();cx.globalAlpha=1-k;propSprite('inner_gate',(gt.x0*TS)+w/2,(gt.y1+1)*TS,w,h+70);cx.restore();}
+function drawBeacon(m){cx.save();cx.globalAlpha=m.dead?Math.max(0,1-m.deadT/.8):1;propSprite(m.dead?'beacon_off':'beacon_on',m.x,m.y,100);cx.restore();}
+function drawExit(e){const x=(e.x0+e.x1+1)*TS/2,y=(e.y+1)*TS,w=(e.x1-e.x0+1)*TS+80;let key=e.art==='cave'?'cave':e.art==='up'?'stairs_up':e.art==='down'?'stairs_down':e.art==='door'?(e.open?'door_open':'door_closed'):e.art==='gate'?(e.open?'gate_open':'gate_closed'):(e.open?'bars_open':'bars_closed');propSprite(key,x,y,w,Math.min(205,w*.95));}
+function weiDrawGate(g,label){if(g.open)return;propSprite(label==='봉쇄된 정문'?'gate_closed':'inner_gate',g.x,g.y,135,125);weiMark(g,label,'#b7b3c9',55);}
+function drawGim05(){const d=M.defense05;if(!d||M.mis!=='defend05')return;weiMark(d,'성문 방어','#ffd36b',d.r);propSprite('flag_red',d.x,d.y,70,125);}
+function drawGimmicks(){weiDraw();drawGim05();if(!M.towers)return;for(const q of M.towers.list){weiMark(q,'감시탑 '+q.id+(q.captured?' · 점령':q.lead.dead?' · 접근':' · 지휘병'),q.captured?'#67dca0':'#ffd36b',52);propSprite('tower',q.x,q.y,115,175);if(q.captured)propSprite('flag_blue',q.x+38,q.y-100,35,65);if(!q.captured&&q.progress>0){cx.fillStyle='#251d29';cx.fillRect(q.x-36,q.y+12,72,7);cx.fillStyle='#ffd36b';cx.fillRect(q.x-36,q.y+12,72*q.progress/1.5,7);}}}
+WEI_RULES[4].draw=function(){for(const d of M.wei.depots){propSprite(d.burnt?'supply_burnt':'supply',d.x,d.y,120,95);if(d.burning)wuFlames(d,90);weiMark(d,d.burnt?'잿더미':d.burning?'불타는 보급창':'보급창','#ffb268');}};
+WEI_RULES[6].draw=function(){const w=M.wei;propSprite('trap',w.trap.x,w.trap.y+70,240,140);weiMark(w.trap,'포획진','#ff8bcb',120);weiMark(w.lead,w.phase==='approach'?'유인 대상':'유혹 중','#ff8bcb');};
+WEI_RULES[7].draw=function(){const w=M.wei;if(w.phase==='quiet')return;for(const [x,y]of w.cells)if(w.blocked)propSprite('barricade',(x+.5)*TS,(y+1)*TS,TS+5,70);};
+WEI_RULES[8].draw=function(){const w=M.wei;weiDrawGate(w.gate,'숨은 벽');if(w.phase==='jar'){propSprite('jar',w.jar.x,w.jar.y,65,76);weiMark(w.jar,'수상한 항아리','#c0a6ff');}else{propSprite('jar_broken',w.jar.x,w.jar.y,65,40);weiMark(w.gate.far,'비밀 통로','#c0a6ff');}};
+WEI_RULES[9].draw=function(){const w=M.wei;weiDrawGate(w.gate,'봉쇄된 정문');propSprite(w.gate.open?'lever_on':'lever_off',w.lever.x,w.lever.y,70,75);weiMark(w.lever,'안쪽 개폐기','#71dfce');};
+WEI_RULES[11].draw=function(){const w=M.wei;propSprite(w.phase==='launch'?'boat_off':'boat_on',w.boat.x,w.boat.y+40,85,155);weiMark(w.launch,'불배 진수장','#ffbf73');weiMark(w.camp,'적진','#ff866a');if(w.phase==='burn')wuFlames(w.camp,130);};
+WEI_RULES[14].draw=function(){for(const t of M.wei.torches){propSprite(t.broken?'torch_off':'torch_on',t.x,t.y,65,105);weiMark(t,t.broken?'꺼진 횃불':'적 횃불',t.broken?'#808896':'#ffb56b');}};
+WEI_RULES[15].draw=function(){const w=M.wei;for(const g of w.gates)weiDrawGate(g,'돌벽');for(let i=0;i<w.stones.length;i++){const p=w.stones[i];propSprite(i<w.index?'stone_on':'stone_off',p.x,p.y,70,95);weiMark(p,'팔진석 '+(i+1),i<w.index?'#81dfc1':'#b7c6ff');}};
+WEI_RULES[16].draw=function(){for(const s of M.wei.switches){propSprite(s.on?'plate_on':'plate_off',s.x,s.y+18,90,55);weiMark(s,'발판 '+s.id+(s.on?' · 작동':''),s.on?'#74dfb8':'#a5b6ff',80);}};
+WEI_RULES[17].draw=function(){for(const c of M.wei.chains){propSprite(c.broken?'chain_off':'chain_on',c.x,c.y,125,55);weiMark(c,c.broken?'끊어진 쇠사슬':'쇠사슬 연결부',c.broken?'#818c9c':'#b9c8e9');}const p=M.wei.chains[0];weiMark({x:p.x,y:p.y-150},M.wei.left?'동남풍 대기':'동남풍','#9be6cc');};
+WEI_RULES[18].draw=WEI_RULES[6].draw;
+WEI_RULES[19].draw=function(){for(const q of M.wei.people){propSprite('npc'+q.id,q.x,q.y,65,100);weiMark(q,q.checked?'확인 완료':'성안 사람 '+q.id,q.checked?'#89949d':'#9ae1c8');}};
+WEI_RULES[20].draw=function(){const w=M.wei;for(let i=0;i<w.path.length;i++){const p=w.path[i];if(M.D.g[Math.floor(p.y/TS)][Math.floor(p.x/TS)]!==1)continue;propSprite(i<w.collapsed?'bridge_broken':'bridge',p.x,p.y+TS*.55,TS*1.4,TS*1.15);}for(let i=0;i<3;i++)weiMark(w.checkpoints[i],i===2?'다리 출구':'경유지 '+(i+1),i<w.index?'#80dfb3':'#ffd36b',70);};
+
+function drawGateLegacy(gt){
   const k=gt.open?easeOut(gt.t):0;if(k>=1)return;
   const x0=gt.x0*TS,y0=gt.y0*TS,w=(gt.x1-gt.x0+1)*TS,h=(gt.y1-gt.y0+1)*TS,E=70*(1-k);
   const wood=!gt.iron,cT=wood?'#8c5d36':'#6d7886',cF=wood?'#5b381c':'#454e5c',cL=wood?'#3a2210':'#262c36',cB=wood?'#4a4f58':'#a3afc2';
@@ -3094,7 +3119,7 @@ function drawGate(gt){
   cx.lineWidth=3;cx.strokeStyle=cL;cx.strokeRect(x0,y0-E,w,h);cx.strokeRect(x0,y0+h-E,w,E);
   cx.restore();
 }
-function drawBeacon(m){
+function drawBeaconLegacy(m){
   const x=m.x,y=m.y,t=time+m.seed,u=m.dead?Math.min(1,m.deadT/.8):0,al=1-u;
   drawShadow(x,y,48,12,.35*al);
   cx.save();cx.globalAlpha=al;cx.lineJoin='round';
@@ -4144,7 +4169,7 @@ addEventListener('visibilitychange',save);
     cutDefLoad();
     showScreen('title');
     $('load').remove();
-    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,hitMob,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx},CM_AUDIO};
+    window.G={keys,joy,S,step,get P(){return P},get M(){return M},get ST(){return ST},mobs,stat,COST,buildStage,refreshUI,zones,shots,wards,power,powerOf,calc,makeItem,equipItem,sellItem,enhance,recalc,addDrop,startFarm,advanceStage,useSkill,SK,setAtk:v=>{atkHeld=!!v;if(v)atkTap=.25;},wantAtk,allies,buildMusou,openGate,heroDown,joinHero,setCmd,addAlly,doAct,rescueTarget,get cam(){return cam},UI,STG,DIFF,ACT,showScreen,startStage,endStage,gainExp,expNeed,pauseGame,playDlg,showResult,genKan,kanSpecs,buildKan,goNext,queueDlg,allyStatOf,heroLv,heroExp,THEME_OF,showCut,calcStars,cutTap,hurtAlly,BUF,pks,FOOD,eatFood,dropFood,breakJars,openChest,openExit,KAN_PLAN,hitMob,weiTick,weiHit,weiTarget,gimTick,gimTarget,gimText,killMob,blockedAt,soldierWalkFrame,drawMob,get art(){return A},get paint(){return cx},CM_AUDIO,STAGE_PROPS,propReady,PROP_NAMES};
     requestAnimationFrame(loop);
   }catch(e){$('load').textContent='오류: '+e.message;console.error(e);}
 })();
