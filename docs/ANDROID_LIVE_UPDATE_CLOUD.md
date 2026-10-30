@@ -2,7 +2,7 @@
 
 ## 요청 및 적용
 - 기술명(채찍 기존 7연속기 및 액티브 2개), 107개 음성, 능력치 및 실제 근접 타격 범위는 **변경하지 않음**.
-- 기존 전격 광선/원거리 번개줄기(fx bolt) 효과 제거. 채찍은 검보다 넓은 **205px** 근접 범위(검 146px), 기본 타격 계수 **0.85**를 유지.
+- 기존 전격 광선/원거리 번개줄기(fx bolt) 효과 제거. 채찍은 검(146px)보다 조금 긴 **170px** 근접 범위, 기본 타격 계수 **0.85**를 유지. 기본 채찍선·타격 판정·휘감기·콤보 전부 170px 상한이며 장비 사거리 보정(ST.rng)으로 늘어나지 않음.
 - Android 앱은 시작 시 사용자 확인된 **mobile-live** 브랜치 index.html을 HTTPS로 검사해 불러온다. 다음 시작 시 갱신되며 전투 중 강제 새로고침 하지 않는다.
 - 원격 HTML은 WebViewAssetLoader의 **appassets.androidplatform.net 동일 origin**으로 노출해 기존 localStorage `choseon_musou_v2`를 유지한다.
 - 인터넷/HTTP/검증 실패 시 최근 정상 업데이트 캐시 → APK 내장 index.html 순으로 실행. 미확인 GitHub Pages URL을 사용하지 않는다.

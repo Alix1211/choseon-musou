@@ -2,7 +2,7 @@
 # 수동 콤보 엔진보다 뒤에 선언. 클릭/게임 로직/기존 이벤트 순서는 보존한다.
 rep('/* ───────── 수동 조작 입력 ───────── */',rd('m3_musou.js')+'\n/* ───────── 수동 조작 입력 ───────── */')
 rep('  if(CB.pending)return false;', '  if(ULT.active||CB.pending)return false;')
-rep('const REACH={sword:146,whip:306,fan:600};','const REACH={sword:146,whip:205,fan:600};')
+rep('const REACH={sword:146,whip:306,fan:600};','const REACH={sword:146,whip:170,fan:600};')
 rep('const IDEAL={sword:80,whip:190,fan:330};','const IDEAL={sword:80,whip:142,fan:330};')
 rep('m:.85*mm','m:.75*mm')
 rep('  m.dead=true;m.deadT=0;S.kills++;if(P)P.nk=0;',

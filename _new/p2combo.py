@@ -52,8 +52,8 @@ whip_sweep="""if(f.k==='whipSweep'){
       const fade=Math.max(0,1-u),phase=easeOut(Math.min(1,f.t/.12));
       const half=f.radial?Math.PI:(f.ha||.85),a0=f.a-half,a1=a0+2*half*phase;
       cx.save();cx.lineCap='round';
-      cx.beginPath();cx.arc(f.x,f.y,f.R*.83,a0,a1);cx.strokeStyle='rgba(245,126,177,'+(.72*fade)+')';cx.lineWidth=10;cx.stroke();
-      cx.beginPath();cx.arc(f.x,f.y,f.R*.83,a0,a1);cx.strokeStyle='rgba(255,236,244,'+(.82*fade)+')';cx.lineWidth=3;cx.stroke();
+      cx.beginPath();cx.arc(f.x,f.y,Math.max(0,f.R-5),a0,a1);cx.strokeStyle='rgba(245,126,177,'+(.72*fade)+')';cx.lineWidth=10;cx.stroke();
+      cx.beginPath();cx.arc(f.x,f.y,Math.max(0,f.R-5),a0,a1);cx.strokeStyle='rgba(255,236,244,'+(.82*fade)+')';cx.lineWidth=3;cx.stroke();
       cx.restore();
     }else """
 rep("    if(f.k==='slash'){",'    '+whip_sweep+"if(f.k==='slash'){")

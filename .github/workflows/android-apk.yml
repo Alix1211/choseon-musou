@@ -28,6 +28,23 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Regenerate game from canonical sources (review before commit)
+        run: |
+          mkdir -p /tmp/choseon-range-review
+          cp index.html /tmp/choseon-range-review/index_before.html
+          python3 _new/p2.py
+          cp index.html /tmp/choseon-range-review/index_regenerated.html
+          git diff --numstat -- index.html | tee /tmp/choseon-range-review/diffstat.txt
+          git diff -- index.html > /tmp/choseon-range-review/index.patch
+      - name: Upload regenerated index and exact diff for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: choseon-whip-range-regeneration-review
+          path: /tmp/choseon-range-review/
+          if-no-files-found: error
+          retention-days: 3
+      - name: Test real whip hit functions vs visual range
+        run: node tools/test_whip_reach.cjs
       - name: Validate lightweight Canvas effects
         run: node tools/check_fx_budget.cjs
       - name: Check safe live updates and Drive backup wiring
