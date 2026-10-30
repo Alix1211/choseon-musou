@@ -1,6 +1,6 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>삼국 초선 무쌍</title>
-<!-- CHOSEON_LIVE_UPDATE: 2026-10-30-melee-cloud-v1 -->
+<!-- CHOSEON_LIVE_UPDATE: 2026-10-30-melee-whip-v2 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;--bg:#0e0a14;--panel:rgba(26,16,38,.86);--line:#5a4270;--ink:#f6ecff;--dim:#a893c0;--hot:#ff5aa5;--gold:#ffd36b;--off:#322a40;--hp:#e8456b}
@@ -1266,7 +1266,7 @@ function doHit(w,mm){
     for(const m of list){const dx=m.x-P.x,dy=m.y-P.y,d=Math.hypot(dx,dy);if(d>REACH.sword+16+m.scale*14)continue;let da=Math.abs(Math.atan2(dy,dx)-ga);if(da>Math.PI)da=Math.PI*2-da;if(da<1.25)hitMob(m,base*1.0,'sword',210,Math.atan2(dy,dx));}
     shake=Math.max(shake,2);
   }else if(w==='whip'){
-    const t=aimT(list),a=t?ang(t.m):0,ga=t?gang(t.m):0,L=(REACH.whip+34)*ST.rng;
+    const t=aimT(list),a=t?ang(t.m):0,ga=t?gang(t.m):0,L=REACH.whip*ST.rng;
     fx.push({k:'whip',x:px,y:py,a,t:0,life:.30,L:Math.min(L,t?Math.hypot(t.m.x-P.x,(t.m.y-30)-py)+30:L)});
     const c=Math.cos(ga),s=Math.sin(ga);
     for(const m of list){const dx=m.x-P.x,dy=m.y-P.y,al=dx*c+dy*s,pr=Math.abs(-dx*s+dy*c);if(al>0&&al<L+m.scale*12&&pr<50+m.scale*14)hitMob(m,base*.85,'whip',120,Math.atan2(dy,dx));}
@@ -3701,11 +3701,13 @@ function drawFx(){
   cx.save();cx.globalCompositeOperation='lighter';
   for(const f of fx){
     const u=f.t/f.life;
-    if(f.k==='bolt'){
-      // Compatibility for older queued effects: local spark, no long-range bolt.
-      const al=Math.max(0,1-u);
-      cx.save();cx.strokeStyle='rgba(145,225,255,'+al*.65+')';cx.lineWidth=3;
-      cx.beginPath();cx.arc(f.x,f.y,18*u+7,0,Math.PI*1.6);cx.stroke();cx.restore();
+    if(f.k==='whipSweep'){
+      const fade=Math.max(0,1-u),phase=easeOut(Math.min(1,f.t/.12));
+      const half=f.radial?Math.PI:(f.ha||.85),a0=f.a-half,a1=a0+2*half*phase;
+      cx.save();cx.lineCap='round';
+      cx.beginPath();cx.arc(f.x,f.y,f.R*.83,a0,a1);cx.strokeStyle='rgba(245,126,177,'+(.72*fade)+')';cx.lineWidth=10;cx.stroke();
+      cx.beginPath();cx.arc(f.x,f.y,f.R*.83,a0,a1);cx.strokeStyle='rgba(255,236,244,'+(.82*fade)+')';cx.lineWidth=3;cx.stroke();
+      cx.restore();
     }else if(f.k==='slash'){
       // Avoid shadowBlur with layered arc segments: Android WebView may fall back
       // to an expensive software blur on every sword hit.
@@ -3716,8 +3718,8 @@ function drawFx(){
       arcBand(f.x,f.y,a0,a1,f.R-4,f.R*(f.small?.12:.16),easeOut(sweep),.8*fadeA,2.2);
       cx.restore();
     }else if(f.k==='whip'){
-      cx.save();cx.shadowBlur=12;cx.shadowColor='rgba(255,145,218,.7)';
-      const ext=easeOut(Math.min(1,f.t/.09)),fadeA=f.t<.1?1:1-(f.t-.1)/(f.life-.1),L=f.L*ext;
+      cx.save(); // 근접 채찍: 실시간 shadowBlur 제거
+      const ext=easeOut(Math.min(1,f.t/.09)),fadeA=f.t<.1?1:1-(f.t-.1)/(f.life-.1),L=Math.min(f.L,REACH.whip*ST.rng)*ext;
       const c=Math.cos(f.a),s=Math.sin(f.a),nx=-s,ny=c;
       const pts=[];for(let i=0;i<=20;i++){const q=i/20,w=Math.sin(q*Math.PI*3-f.t*55)*(1-q)*20*(1-ext*.6);pts.push([f.x+c*(40+q*L)+nx*w,f.y+s*(40+q*L)+ny*w]);}
       for(const [lw,col] of [[12,'rgba(255,90,170,'+.30*fadeA+')'],[6,'rgba(255,170,220,'+.7*fadeA+')'],[2.5,'rgba(255,255,255,'+fadeA+')']]){
@@ -3928,10 +3930,11 @@ function comboDamage(m,power,kb,ang,stun){
 function comboStrike(move,part){
   const w=P.cbWeapon||ST.wt,a=P.cbAngle||0,px=P.x,py=P.y,ct=Math.cos(a),st=Math.sin(a),list=liveMobs();
   const radial=move==='spin'||move==='slam'||move==='rocks'||move==='dashHeavy';
-  const radius=move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='whip'?215:w==='fan'?440:240;
+  const radius=move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='whip'?258:w==='fan'?440:240;
   const power=move==='spin'?.67:move==='rocks'?2.3:move==='slam'?1.7:move==='dashHeavy'?1.05:move==='dashLight'?.65:move==='arc'?1.7:1.8;
   const kb=move==='dashHeavy'?470:move==='slam'||move==='rocks'?390:move==='spin'?240:move==='dashLight'?135:225;
-  fx.push({k:radial?'shock':'sweep',x:px,y:radial?py:py-CH*.3,t:0,life:.32,R:radius,a,ha:move==='arc'?1.18:.54,col:w==='whip'?'75,205,255':w==='fan'?'170,105,255':'255,205,110',col2:'255,255,255',small:move==='dashHeavy'});
+  if(w==='whip')fx.push({k:'whipSweep',x:px,y:py-CH*.3,t:0,life:.30,R:radius,a,radial,ha:move==='arc'?1.18:.78});
+  else fx.push({k:radial?'shock':'sweep',x:px,y:radial?py:py-CH*.3,t:0,life:.32,R:radius,a,ha:move==='arc'?1.18:.54,col:w==='fan'?'170,105,255':'255,205,110',col2:'255,255,255',small:move==='dashHeavy'});
   if(w==='fan'&&(move==='arc'||move==='dashLight')){
     const count=move==='arc'?5:3;
     for(let i=0;i<count;i++){

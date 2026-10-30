@@ -92,14 +92,15 @@ function comboDamage(m,power,kb,ang,stun){
   hitMob(m,stat.atk()*power*(w==='fan'?.78:w==='whip'?.85:1),w,kb,ang);
   if(!m.dead&&!m.boss&&stun)m.stun=Math.max(m.stun,stun);
 }
-function comboBolt(x,y,tx,ty){fx.push({k:'bolt',x,y,tx,ty,t:0,life:.23});}
+/* 채찍은 원거리 전격 발사체가 아닌 초선 주변의 물리적인 휘두르기 궤적을 쓴다. */
 function comboStrike(move,part){
   const w=P.cbWeapon||ST.wt,a=P.cbAngle||0,px=P.x,py=P.y,ct=Math.cos(a),st=Math.sin(a),list=liveMobs();
   const radial=move==='spin'||move==='slam'||move==='rocks'||move==='dashHeavy';
-  const radius=move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='whip'?215:w==='fan'?440:240;
+  const radius=move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='whip'?258:w==='fan'?440:240;
   const power=move==='spin'?.67:move==='rocks'?2.3:move==='slam'?1.7:move==='dashHeavy'?1.05:move==='dashLight'?.65:move==='arc'?1.7:1.8;
   const kb=move==='dashHeavy'?470:move==='slam'||move==='rocks'?390:move==='spin'?240:move==='dashLight'?135:225;
-  fx.push({k:radial?'shock':'sweep',x:px,y:radial?py:py-CH*.3,t:0,life:.32,R:radius,a,ha:move==='arc'?1.18:.54,col:w==='whip'?'75,205,255':w==='fan'?'170,105,255':'255,205,110',col2:'255,255,255',small:move==='dashHeavy'});
+  if(w==='whip')fx.push({k:'whipSweep',x:px,y:py-CH*.3,t:0,life:.30,R:radius,a,radial,ha:move==='arc'?1.18:.78});
+  else fx.push({k:radial?'shock':'sweep',x:px,y:radial?py:py-CH*.3,t:0,life:.32,R:radius,a,ha:move==='arc'?1.18:.54,col:w==='fan'?'170,105,255':'255,205,110',col2:'255,255,255',small:move==='dashHeavy'});
   if(w==='fan'&&(move==='arc'||move==='dashLight')){
     const count=move==='arc'?5:3;
     for(let i=0;i<count;i++){
@@ -113,14 +114,11 @@ function comboStrike(move,part){
     const fits=radial?d<radius+m.scale*12:move==='arc'?d<radius+m.scale*12&&delta<1.20:move==='dashLight'?d<radius+m.scale*12&&delta<.95:dot>0&&d<radius+m.scale*12&&delta<.58;
     if(!fits)continue;
     comboDamage(m,power,kb,da,move==='slam'?.9:move==='rocks'?1.2:move==='dashHeavy'?.4:w==='whip'?.45:0);
-    if(w==='whip')comboBolt(px,py-CH,m.x,m.y-40*m.scale);
   }
   if(move==='rocks')for(let i=0;i<19;i++){
     const q=i*Math.PI*2/19;
     fx.push({k:'deb',x:px+Math.cos(q)*rnd(10,60),y:py-18,vx:Math.cos(q)*rnd(90,330),vy:-rnd(120,380),t:0,life:rnd(.38,.7)});
-    if(w==='whip')comboBolt(px,py-CH,px+Math.cos(q)*140,py+Math.sin(q)*70);
   }
-  if(w==='whip'&&!list.length)comboBolt(px,py-CH,px+ct*radius,py+st*radius-CH);
   if(w==='fan')fx.push({k:'ring',x:px,y:py-25,t:0,life:.3,R:radius*.6});
   shake=Math.max(shake,move==='rocks'?10:move==='slam'?7:move==='dashHeavy'?5:3);
 }
@@ -132,7 +130,6 @@ function comboMoveTick(dt,prev,frame,total){
     for(const m of liveMobs()){
       if(P.cbRushHit.has(m)||Math.hypot(m.x-P.x,m.y-P.y)>100+m.scale*15)continue;
       P.cbRushHit.add(m);comboDamage(m,2.1,320,Math.atan2(m.y-P.y,m.x-P.x),P.cbWeapon==='whip'?.6:0);
-      if(P.cbWeapon==='whip')comboBolt(P.x,P.y-CH,m.x,m.y-35);
     }
   }else if(move==='dashLight'){
     const thresholds=[.23,.47,.71];

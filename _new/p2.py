@@ -73,5 +73,6 @@ if not os.environ.get('NOD'):exec(open(B+'_new/p2decor.py',encoding='utf-8').rea
 if not os.environ.get('NOD'):exec(open(B+'_new/p2combo.py',encoding='utf-8').read())
 if not os.environ.get('NOD'):exec(open(B+'_new/p2musou.py',encoding='utf-8').read())
 if not os.environ.get('NOD'):exec(open(B+'_new/p2ui_v04.py',encoding='utf-8').read())
+if not os.environ.get('NOD'):exec(open(B+'_new/p2whip.py',encoding='utf-8').read())
 open(B+'index.html','w',encoding='utf-8').write(src)
 print('ok',len(src))

@@ -46,15 +46,16 @@ body #dash:not(:disabled):active,body #spin:not(:disabled):active,body #atk:not(
 @media (max-width:430px){body #dash{right:calc(max(16px,env(safe-area-inset-right,0px)) + 198px);width:68px;height:68px}}
 """
 rep('#dbf{font-size:12px;',css+'\n#dbf{font-size:12px;')
-# 날개형 번개: 채찍 조합기의 효과를 일반 분홍 채찍과 구별한다.
-bolt="""if(f.k==='bolt'){
-      const al=1-u;cx.save();cx.lineCap='round';
-      for(const [width,col] of [[9,'rgba(40,170,255,'+al*.35+')'],[4,'rgba(100,240,255,'+al*.85+')'],[1.5,'rgba(255,255,255,'+al+')']]){
-        cx.beginPath();cx.moveTo(f.x,f.y);
-        for(let i=1;i<7;i++){const q=i/7,off=Math.sin(q*23+f.x*.1+f.t*30)*16*(1-Math.abs(q-.5));cx.lineTo(f.x+(f.tx-f.x)*q+(f.y-f.ty)*off/Math.max(40,Math.hypot(f.tx-f.x,f.ty-f.y)),f.y+(f.ty-f.y)*q+(f.tx-f.x)*off/Math.max(40,Math.hypot(f.tx-f.x,f.ty-f.y)));}
-        cx.lineTo(f.tx,f.ty);cx.strokeStyle=col;cx.lineWidth=width;cx.stroke();
-      }cx.restore();
+# 근접 채찍 휘두르기: 번개 투사체 대신 초선 중심의 고정 반경 호(arc)를 그린다.
+# shadowBlur 사용 금지: 태블릿 Canvas 렌더러에 무리를 주지 않는다.
+whip_sweep="""if(f.k==='whipSweep'){
+      const fade=Math.max(0,1-u),phase=easeOut(Math.min(1,f.t/.12));
+      const half=f.radial?Math.PI:(f.ha||.85),a0=f.a-half,a1=a0+2*half*phase;
+      cx.save();cx.lineCap='round';
+      cx.beginPath();cx.arc(f.x,f.y,f.R*.83,a0,a1);cx.strokeStyle='rgba(245,126,177,'+(.72*fade)+')';cx.lineWidth=10;cx.stroke();
+      cx.beginPath();cx.arc(f.x,f.y,f.R*.83,a0,a1);cx.strokeStyle='rgba(255,236,244,'+(.82*fade)+')';cx.lineWidth=3;cx.stroke();
+      cx.restore();
     }else """
-rep("    if(f.k==='slash'){",'    '+bolt+"if(f.k==='slash'){")
+rep("    if(f.k==='slash'){",'    '+whip_sweep+"if(f.k==='slash'){")
 rep("    }else if(f.k==='spark'||f.k==='sp2'){",
     "    }else if(f.k==='deb'){\n      cx.save();cx.translate(f.x,f.y);cx.rotate(f.t*6);cx.fillStyle='rgba(235,191,139,'+(1-u)+')';cx.strokeStyle='rgba(100,72,54,'+(1-u)+')';cx.lineWidth=2;cx.beginPath();cx.moveTo(-8,5);cx.lineTo(-6,-6);cx.lineTo(4,-9);cx.lineTo(9,0);cx.lineTo(2,8);cx.closePath();cx.fill();cx.stroke();cx.restore();\n    }else if(f.k==='spark'||f.k==='sp2'){")
