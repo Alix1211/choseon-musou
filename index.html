@@ -457,7 +457,7 @@ body #musou{
 <button id="spin" disabled title="강공격" aria-label="강공격"></button>
 <button id="dash" disabled title="대시" aria-label="대시"></button>
 <button id="musou" disabled title="무쌍난무" aria-label="무쌍난무"></button>
-<button id="allySwap" hidden disabled aria-label="견희 교체"><img src="a/ui/pt/zhenji.webp" alt=""><i></i></button>
+<button id="allySwap" hidden disabled aria-label="동료 교체"><img src="a/ui/pt/zhenji.webp" alt=""><i></i></button>
 <button id="sk1" class="skb" disabled></button><button id="sk2" class="skb" disabled></button>
 <div id="bag" hidden><div class="bw">
   <div class="bh"><b>가방</b><span id="bcnt"></span><button id="bclose">닫기</button></div>
@@ -4972,14 +4972,39 @@ function resize(){
 }
 addEventListener('resize',resize);
 
-/* First playable companion: existing Zhenji model/walk/action renderer only. */
+/* All 9 existing female generals share the approved playable controller.
+   Existing monster models, WALK frames and portraits; NO new attack sheets. */
 const PLAY={active:'choseon',bagPause:false,bagWasPaused:false};
-function combatWeapon(){return PLAY.active==='zhenji'?'fan':ST.wt;}
+/* Combat families are fixed by the existing character models; equipment
+   inventory, upgrades, buffs and item attack values remain shared via ST. */
+const PLAYABLE_HEROES=Object.freeze({
+  zhenji:  {weapon:'fan',  model:'zhenji',  portrait:'zhenji'},   // 견희: 마법
+  wenji:   {weapon:'fan',  model:'wenji',   portrait:'wenji'},    // 채문희: 마법
+  wangyi:  {weapon:'sword',model:'wangyi',  portrait:'wangyi'},   // 왕이: 검
+  xiaoqiao:{weapon:'fan',  model:'xiaoqiao',portrait:'xiaoqiao'}, // 소교: 마법
+  daqiao:  {weapon:'fan',  model:'daqiao',  portrait:'daqiao'},   // 대교: 마법
+  shangxiang:{weapon:'whip',model:'shangxiang',portrait:'shangxiang'}, // 손상향: 채찍 계열
+  yinping: {weapon:'sword',model:'yinping', portrait:'yinping'},  // 관은병: 검 계열
+  xingcai: {weapon:'sword',model:'xingcai', portrait:'xingcai'}, // 성채: 검 계열
+  yueying: {weapon:'sword',model:'yueying', portrait:'yueying'}   // 월영: 언월도/검 계열
+});
+function combatWeapon(){return PLAYABLE_HEROES[PLAY.active]?.weapon||ST.wt;}
+function playableOrder(){
+  return ['choseon',...S.party.filter(id=>PLAYABLE_HEROES[id]&&S.roster.includes(id))];
+}
+function nextPlayable(){
+  const list=playableOrder(),at=list.indexOf(PLAY.active);
+  for(let k=1;k<list.length;k++){
+    const id=list[(Math.max(0,at)+k)%list.length];
+    if(allies.some(a=>a.type===id&&!a.down&&!a.dead&&a.hp>0))return id;
+  }
+  return null;
+}
 function playableLevel(id=PLAY.active){return id==='choseon'?S.lv:heroLv(id);}
 function playableStats(id=PLAY.active){
-  if(id==='choseon'||!FEM.has(id))return ST;
+  if(id==='choseon'||!PLAYABLE_HEROES[id])return ST;
   const lv=heroLv(id),p=HPERS[id]||[1,1,1];
-  return {...ST,wt:id==='zhenji'?'fan':ST.wt,
+  return {...ST,wt:PLAYABLE_HEROES[id].weapon,
     atk:ST.atk*lvm(lv,.03)/lvm(S.lv,.03)*p[1],
     maxHp:ST.maxHp*lvm(lv,.04)/lvm(S.lv,.04)*p[0],
     def:ST.def*lvm(lv,.02)/lvm(S.lv,.02)};
@@ -5003,22 +5028,32 @@ startStage=function(n,d){
 };
 const playableExpBase=gainExp;
 gainExp=function(v){
-  if(PLAY.active==='zhenji'&&M&&M.musou)heroExp('zhenji',v*(M.replay?.25:.5));
+  if(PLAYABLE_HEROES[PLAY.active]&&M&&M.musou)heroExp(PLAY.active,v*(M.replay?.25:.5));
   return playableExpBase(v);
 };
 function switchPlayable(id){
-  if(!['choseon','zhenji'].includes(id)||id===PLAY.active||!M||UI.mode!=='battle'||UI.paused||M.trans||ULT.active||P.mode!=='manual'||P.hp<=0||P.atk||P.sk||P.skHit)return false;
-  if(id==='zhenji'&&(!S.roster.includes(id)||!S.party.includes(id)))return false;
+  if(!id||id===PLAY.active||!M||UI.mode!=='battle'||UI.paused||M.trans||
+    ULT.active||P.mode!=='manual'||P.hp<=0||P.atk||P.sk||P.skHit)return false;
+  if(id!=='choseon'&&(!PLAYABLE_HEROES[id]||!S.roster.includes(id)||!S.party.includes(id)))return false;
   const index=allies.findIndex(a=>a.type===id&&!a.down&&!a.dead&&a.hp>0);
   if(index<0)return false;
-  const target=allies[index],old=PLAY.active,oldRatio=P.hp/stat.maxHp();
-  const cooldown={skCd:P.skCd.slice(),spinCd:P.spinCd,slowT:P.slowT};
-  const targetRatio=target.hp/target.maxHp,targetCooldown=target.playCooldown||{skCd:[0,0],spinCd:3,slowT:0};
-  const x=target.x,y=target.y;allies.splice(index,1);
+  const target=allies[index],old=PLAY.active;
+  // Both health and cooldown belong to the character, not the shared gear.
+  // Keep ratios because AI ally and player have different maximum HP values.
+  const oldRatio=Math.max(0,Math.min(1,P.hp/stat.maxHp()));
+  const targetRatio=Math.max(0,Math.min(1,target.hp/target.maxHp));
+  const oldCooldown={skCd:P.skCd.slice(),spinCd:P.spinCd,slowT:P.slowT};
+  const targetCooldown=target.playCooldown||{skCd:[0,0],spinCd:3,slowT:0};
+  const targetSkCd=targetCooldown.skCd.slice(),targetSpinCd=targetCooldown.spinCd,
+    targetSlowT=targetCooldown.slowT;
+  const x=target.x,y=target.y;
+  allies.splice(index,1);
   const outgoing=addAlly(old,x,y);
-  outgoing.hp=outgoing.maxHp*Math.max(0,Math.min(1,oldRatio));outgoing.playCooldown=cooldown;
-  PLAY.active=id;P.hp=stat.maxHp()*Math.max(0,Math.min(1,targetRatio));
-  P.skCd=targetCooldown.skCd.slice();P.spinCd=targetCooldown.spinCd;P.slowT=targetCooldown.slowT;
+  outgoing.hp=outgoing.maxHp*oldRatio;
+  outgoing.playCooldown=oldCooldown;
+  PLAY.active=id;
+  P.hp=stat.maxHp()*targetRatio;
+  P.skCd=targetSkCd;P.spinCd=targetSpinCd;P.slowT=targetSlowT;
   stopInput();P.atk=null;P.sk=null;P.skHit=null;P.mAim=null;P.state='idle';P.kx=P.ky=0;P.target=null;
   CM_AUDIO.stopVoice();refreshUI();save();return true;
 }
@@ -5037,9 +5072,9 @@ function drawBenchedChoseon(a){
 const playableDrawBase=drawPlayer;
 drawPlayer=function(){
   if(PLAY.active==='choseon')return playableDrawBase();
-  // Reuse the exact existing companion model/4-frame walk and casting pose.
+  // Reuse the selected hero's existing model, 4-frame WALK and casting pose.
   const progress=P.atk?Math.min(1,P.atkT/A.man[P.atk][P.atk==='spinfan'?'front':dirKey(P.face)[0]].frames):0;
-  drawMob({type:'zhenji',set:'h',x:P.x,y:P.y,face:P.face,scale:1.16,seed:0,
+  drawMob({type:PLAYABLE_HEROES[PLAY.active].model,set:'h',x:P.x,y:P.y,face:P.face,scale:1.16,seed:0,
     moving:!P.atk&&P.state==='move',wind:P.atk&&progress<.5?.4*(1-progress*2):0,
     lunge:P.atk&&progress>=.5?Math.max(0,1-(progress-.5)*2):0,
     hurt:hurtFlash>0?.14:0,stun:0,dead:P.mode==='dead',deadT:P.mode==='dead'?P.tt:0,
@@ -5068,18 +5103,18 @@ openSettings=function(){if(bagOpen)return false;return playableOpenSettingsBase(
 const playableUIBase=refreshUI;
 refreshUI=function(){
   playableUIBase();if(UI.mode!=='battle'||!P||!M)return;
-  const id=PLAY.active,other=id==='choseon'?'zhenji':'choseon',portrait=$('playerPortrait'),swap=$('allySwap');
+  const id=PLAY.active,other=nextPlayable(),portrait=$('playerPortrait'),swap=$('allySwap');
   portrait.querySelector('img').src='a/ui/pt/'+id+'.webp';portrait.title=(HN[id]||'초선')+' · 장비';
   portrait.setAttribute('aria-label',portrait.title);portrait.disabled=UI.paused&&!PLAY.bagPause;
   $('stage').textContent=(HN[id]||'초선')+' Lv '+playableLevel()+' · Stage '+(M.n||S.stage);
   const xp=id==='choseon'?S.xp:S.hx[id]||0;$('xpb').style.width=Math.min(100,xp/expNeed(playableLevel())*100)+'%';
-  swap.hidden=!S.roster.includes('zhenji');swap.querySelector('img').src='a/ui/pt/'+other+'.webp';
+  swap.hidden=!other;if(other)swap.querySelector('img').src='a/ui/pt/'+other+'.webp';
   const unit=allies.find(a=>a.type===other&&!a.down&&!a.dead&&a.hp>0);
-  swap.disabled=!unit||UI.paused||ULT.active||!!P.atk||!!P.sk||!!P.skHit||P.hp<=0||P.mode!=='manual'||!!M.trans;
+  swap.disabled=!other||!unit||UI.paused||ULT.active||!!P.atk||!!P.sk||!!P.skHit||P.hp<=0||P.mode!=='manual'||!!M.trans;
   swap.title=(HN[other]||'초선')+' 교체';swap.setAttribute('aria-label',swap.title);
 };
 $('playerPortrait').addEventListener('click',()=>openBag());
-$('allySwap').addEventListener('click',()=>switchPlayable(PLAY.active==='choseon'?'zhenji':'choseon'));
+$('allySwap').addEventListener('click',()=>{const other=nextPlayable();if(other)switchPlayable(other);});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&bagOpen){e.preventDefault();e.stopImmediatePropagation();closeBag();}},true);
 
 let last=performance.now();
