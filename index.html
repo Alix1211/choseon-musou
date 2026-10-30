@@ -56,8 +56,9 @@ body #dash:not(:disabled):active,body #spin:not(:disabled):active,body #atk:not(
 /* 이번 패치: 강/약공격 좌우 변경, 작은 무쌍, 동료 버튼 분리. */
 body #atk{right:calc(max(16px,env(safe-area-inset-right,0px)) + 105px)!important;width:86px!important;height:86px!important}
 body #spin{right:max(16px,env(safe-area-inset-right,0px))!important;width:94px!important;height:94px!important}
-body #musou{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 205px);bottom:calc(var(--barh,64px) + 200px + env(safe-area-inset-bottom,0px));width:56px;height:56px;z-index:4;border:2px solid #cdb0ff;border-radius:50%;background:#442264 url(a/ui/sk/fan_spin.webp) center/cover no-repeat;box-shadow:0 0 13px #b54fff;touch-action:none;padding:0}
-body #musou:disabled{filter:grayscale(1) brightness(.46)!important;opacity:.62;box-shadow:none!important}
+/* 보라색 대형 버튼 제거. 대시 옆 작은 무쌍 트리거만 남긴다. */
+body #musou{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 285px);bottom:calc(var(--barh,64px) + 130px + env(safe-area-inset-bottom,0px));width:43px;height:43px;z-index:4;border:1.5px solid #f4d88e;border-radius:50%;background:radial-gradient(circle at 38% 30%,#574b38,#1b1a1e);font:800 23px system-ui,sans-serif;color:#ffe5a3;text-shadow:0 1px 2px #000;box-shadow:0 0 12px rgba(255,210,110,.55);touch-action:none;padding:0}
+body #musou:disabled{filter:grayscale(1)!important;opacity:.42;box-shadow:none!important;border-color:#aaa;color:#b7b7b7}
 body #musou:not(:disabled):active{transform:scale(.92);filter:brightness(1.3)}
 body #cmd{left:calc(max(16px,env(safe-area-inset-left,0px)) + 12px)!important;top:43%!important;bottom:auto!important;width:54px!important;height:54px!important}
 body #cmdm{left:calc(max(16px,env(safe-area-inset-left,0px)) + 70px)!important;top:33%!important;bottom:auto!important}
@@ -65,7 +66,7 @@ body #cmdm{left:calc(max(16px,env(safe-area-inset-left,0px)) + 70px)!important;t
 .mu #spw{display:block!important}
 /* 오디오 설정 버튼은 설정 패널로 옮기기 전까지 화면에 띄우지 않는다. */
 #soundControls{display:none!important}
-@media(max-width:430px){body #musou{right:calc(max(16px,env(safe-area-inset-right,0px)) + 198px);bottom:calc(var(--barh,64px) + 199px + env(safe-area-inset-bottom,0px));width:50px;height:50px}}
+@media(max-width:700px){body #musou{right:calc(max(16px,env(safe-area-inset-right,0px)) + 216px);bottom:calc(var(--barh,64px) + 201px + env(safe-area-inset-bottom,0px));width:40px;height:40px}}
 
 #dbf{font-size:12px;font-weight:800;color:#c9a0ff;text-shadow:0 1px 2px #000,0 0 8px #7a3cff}
 #boss{position:fixed;left:50%;transform:translateX(-50%);top:calc(max(8px,env(safe-area-inset-top,0px)) + 128px);width:min(420px,calc(100vw - 32px));pointer-events:none;text-align:center}
@@ -358,23 +359,38 @@ body #cmdm{left:calc(max(16px,env(safe-area-inset-left,0px)) + 70px)!important;t
 #s_cut.shk .cimg,#s_cut.shk .cbg{animation:shk2 .24s}
 @keyframes shk2{0%{transform:translate(0,0)}20%{transform:translate(-12px,8px)}40%{transform:translate(10px,-8px)}60%{transform:translate(-6px,5px)}80%{transform:translate(4px,-3px)}100%{transform:translate(0,0)}}
 
+
+/* v0.4: 화면 왼쪽에는 생존/목표 정보, 오른쪽에는 단계/지도만 둔다. */
+#top{align-items:flex-start;gap:12px;z-index:5}
+#tl{max-width:min(355px,47vw);gap:5px}
+#hpw{width:min(330px,46vw);height:18px;border-radius:9px}
+#hpt{font-size:11px;line-height:16px}
+#obj{max-width:min(330px,46vw);font-size:13px;line-height:1.3}
+#xpw,#spw{width:min(330px,46vw)}
+#tr{display:flex;flex-direction:column;align-items:flex-end;gap:4px;max-width:36vw}
+#tr #stage{font-size:11px;line-height:14px;font-weight:600;color:#eee6df;opacity:.88;white-space:nowrap}
+#tr #mm{position:static;display:block;width:176px;height:124px;max-width:35vw;margin-top:0;pointer-events:none;border:1px solid #9b83a9;border-radius:9px;background:rgba(12,9,20,.68)}
+#pause{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 184px);top:calc(max(8px,env(safe-area-inset-top,0px)) + 20px);width:28px;height:29px;min-height:0;padding:0;border:0;background:rgba(10,8,16,.35);border-radius:5px;color:#fff;font:800 20px/29px system-ui,sans-serif;text-shadow:0 1px 4px #000;box-shadow:none;z-index:6;touch-action:manipulation;pointer-events:auto}
+@media(max-width:700px){#tr #mm{width:126px;height:95px}#pause{right:calc(max(16px,env(safe-area-inset-right,0px)) + 136px);top:calc(max(8px,env(safe-area-inset-top,0px)) + 17px);width:26px;height:27px;font-size:18px}}
+
 </style>
 <canvas id="c"></canvas>
 <div class="hud" id="top">
   <div id="tl">
-    <div id="stage"></div><div id="obj"></div>
-    <div id="hpw"><div id="hpb"></div><div id="hpt"></div></div><div id="xpw"><div id="xpb"></div></div>
-    <div id="spw" title="회전 부채"><div id="spb"></div></div>
-    <div id="dbf"></div><div id="buffs"></div><div id="revq"></div><canvas id="mm" width="150" height="110"></canvas>
+    <div id="hpw"><div id="hpb"></div><div id="hpt"></div></div>
+    <div id="obj"></div>
+    <div id="xpw"><div id="xpb"></div></div>
+    <div id="spw" title="무쌍 게이지"><div id="spb"></div></div>
+    <div id="dbf"></div><div id="buffs"></div><div id="revq"></div>
   </div>
-</div>
-<div id="banner"></div><div id="kfade"></div>
+  <div id="tr"><div id="stage"></div><canvas id="mm" width="150" height="110"></canvas></div>
+</div><div id="banner"></div><div id="kfade"></div>
 <div id="boss" hidden><div id="bn"></div><div id="bw"><div id="bb"></div></div></div>
 <button id="cmd" disabled title="동료 명령"></button><div id="cmdm" hidden></div>
 <button id="atk" disabled>공격</button>
 <button id="spin" disabled title="강공격" aria-label="강공격"></button>
 <button id="dash" disabled title="대시" aria-label="대시"></button>
-<button id="musou" disabled title="무쌍 필살기" aria-label="무쌍 필살기"></button>
+<button id="musou" disabled title="무쌍 필살기" aria-label="무쌍 필살기">★</button>
 <button id="sk1" class="skb" disabled></button><button id="sk2" class="skb" disabled></button>
 <div id="bag" hidden><div class="bw">
   <div class="bh"><b>가방</b><span id="bcnt"></span><button id="bclose">닫기</button></div>
@@ -397,7 +413,7 @@ body #cmdm{left:calc(max(16px,env(safe-area-inset-left,0px)) + 70px)!important;t
   </div>
 </div></div>
 <div id="idet" hidden></div>
-<button id="pause" hidden>일시정지</button>
+<button id="pause" hidden title="일시정지" aria-label="일시정지">Ⅱ</button>
 <div class="scr" id="s_title" hidden><div class="bgi"></div><div class="shade"></div><div class="stg" id="g_title"></div></div>
 <div class="scr" id="s_bar" hidden><div class="bgi"></div><div class="shade"></div><div class="stg" id="g_bar"></div></div>
 <div class="scr" id="s_scn" hidden><div class="bgi"></div><div class="shade"></div><div class="stg" id="g_scn"></div></div>
@@ -3738,6 +3754,16 @@ function comboDirection(inp){
   const d={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[P.face]||[0,1];
   return {x:d[0],y:d[1]};
 }
+/* 타격 판정 이후 동작의 끝 28%는 다음 입력으로 연결한다.
+   공격속도 장비가 추가되어도 애니메이션 진행률을 기준으로 판정한다. */
+function comboCancelReady(){
+  if(!P.atk||!P.cbAction||P.cbMove||P.sk||P.skHit||!P.hitDone)return false;
+  const key=dirKey(P.face)[0],e=A.man[P.atk]&&A.man[P.atk][key];
+  return !!e&&P.atkT/e.frames>=.72;
+}
+function comboReleaseAttack(){
+  P.atk=null;P.state='idle';P.mAim=null;P.cbAction=null;P.cbMove=null;
+}
 function comboBegin(entry,n,inp){
   const now=comboNow(),kind=entry.kind;
   if(P.atk||P.sk||P.skHit)return false;
@@ -3785,13 +3811,21 @@ function comboTick(dt,n,inp){
   if(CB.pending){
     const p=CB.pending;
     if(comboNow()-p.at>950){CB.pending=null;}
-    else if(!P.atk&&!P.sk&&!P.skHit){CB.pending=null;comboBegin(p,n,inp);}
+    else if((!P.atk&&!P.sk&&!P.skHit)||comboCancelReady()){
+      if(P.atk)comboReleaseAttack();
+      CB.pending=null;comboBegin(p,n,inp);
+    }
   }
+}
+function comboAttackDuration(){
+  const base=P.cbMove==='spin'?2.24:P.cbMove==='pierce'?.84:P.cbMove==='dashLight'?.76:P.cbMove==='rocks'?.96:P.cbAction==='light'?.38:.54;
+  /* 장비 공속 배율은 나중에 추가해도 콤보 입력 판정과 독립적이다. */
+  const rate=Math.max(.5,Math.min(2.5,Number(ST.attackSpeed)||1));
+  return base/rate;
 }
 function comboFps(e){
   if(!P.cbAction)return e.fps*SPD[P.atk]*(P.slowT>0?.6:1);
-  const duration=P.cbMove==='spin'?2.24:P.cbMove==='pierce'?.84:P.cbMove==='dashLight'?.76:P.cbMove==='rocks'?.96:P.cbAction==='light'?.54:.76;
-  return e.frames/duration*(P.slowT>0?.65:1);
+  return e.frames/comboAttackDuration()*(P.slowT>0?.65:1);
 }
 function comboDamage(m,power,kb,ang,stun){
   const w=P.cbWeapon||ST.wt;

@@ -14,6 +14,16 @@ function comboDirection(inp){
   const d={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[P.face]||[0,1];
   return {x:d[0],y:d[1]};
 }
+/* 타격 판정 이후 동작의 끝 28%는 다음 입력으로 연결한다.
+   공격속도 장비가 추가되어도 애니메이션 진행률을 기준으로 판정한다. */
+function comboCancelReady(){
+  if(!P.atk||!P.cbAction||P.cbMove||P.sk||P.skHit||!P.hitDone)return false;
+  const key=dirKey(P.face)[0],e=A.man[P.atk]&&A.man[P.atk][key];
+  return !!e&&P.atkT/e.frames>=.72;
+}
+function comboReleaseAttack(){
+  P.atk=null;P.state='idle';P.mAim=null;P.cbAction=null;P.cbMove=null;
+}
 function comboBegin(entry,n,inp){
   const now=comboNow(),kind=entry.kind;
   if(P.atk||P.sk||P.skHit)return false;
@@ -61,13 +71,21 @@ function comboTick(dt,n,inp){
   if(CB.pending){
     const p=CB.pending;
     if(comboNow()-p.at>950){CB.pending=null;}
-    else if(!P.atk&&!P.sk&&!P.skHit){CB.pending=null;comboBegin(p,n,inp);}
+    else if((!P.atk&&!P.sk&&!P.skHit)||comboCancelReady()){
+      if(P.atk)comboReleaseAttack();
+      CB.pending=null;comboBegin(p,n,inp);
+    }
   }
+}
+function comboAttackDuration(){
+  const base=P.cbMove==='spin'?2.24:P.cbMove==='pierce'?.84:P.cbMove==='dashLight'?.76:P.cbMove==='rocks'?.96:P.cbAction==='light'?.38:.54;
+  /* 장비 공속 배율은 나중에 추가해도 콤보 입력 판정과 독립적이다. */
+  const rate=Math.max(.5,Math.min(2.5,Number(ST.attackSpeed)||1));
+  return base/rate;
 }
 function comboFps(e){
   if(!P.cbAction)return e.fps*SPD[P.atk]*(P.slowT>0?.6:1);
-  const duration=P.cbMove==='spin'?2.24:P.cbMove==='pierce'?.84:P.cbMove==='dashLight'?.76:P.cbMove==='rocks'?.96:P.cbAction==='light'?.54:.76;
-  return e.frames/duration*(P.slowT>0?.65:1);
+  return e.frames/comboAttackDuration()*(P.slowT>0?.65:1);
 }
 function comboDamage(m,power,kb,ang,stun){
   const w=P.cbWeapon||ST.wt;

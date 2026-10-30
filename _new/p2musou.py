@@ -15,7 +15,7 @@ rep('  drawFx();drawDebris();', '  drawFx();drawDebris();musouDrawWorld();')
 rep('  if(fade>.01){cx.fillStyle=\'rgba(8,5,14,\'+Math.min(1,fade)+\')\';cx.fillRect(0,0,VW,VH);}',
     '  if(fade>.01){cx.fillStyle=\'rgba(8,5,14,\'+Math.min(1,fade)+\')\';cx.fillRect(0,0,VW,VH);}\n  musouDrawPortrait();')
 rep('<button id="dash" disabled title="대시" aria-label="대시"></button>',
-    '<button id="dash" disabled title="대시" aria-label="대시"></button>\n<button id="musou" disabled title="무쌍 필살기" aria-label="무쌍 필살기"></button>')
+    '<button id="dash" disabled title="대시" aria-label="대시"></button>\n<button id="musou" disabled title="무쌍 필살기" aria-label="무쌍 필살기">★</button>')
 rep("  $('dash').addEventListener('pointerdown',e=>{e.preventDefault();comboPress('dash');});",
     "  $('dash').addEventListener('pointerdown',e=>{e.preventDefault();comboPress('dash');});\n  $('musou').addEventListener('pointerdown',e=>{e.preventDefault();musouStart();});")
 rep("  if(e.key==='Shift'){if(!e.repeat)comboPress('dash');e.preventDefault();}",
@@ -69,8 +69,9 @@ css=r"""
 /* 이번 패치: 강/약공격 좌우 변경, 작은 무쌍, 동료 버튼 분리. */
 body #atk{right:calc(max(16px,env(safe-area-inset-right,0px)) + 105px)!important;width:86px!important;height:86px!important}
 body #spin{right:max(16px,env(safe-area-inset-right,0px))!important;width:94px!important;height:94px!important}
-body #musou{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 205px);bottom:calc(var(--barh,64px) + 200px + env(safe-area-inset-bottom,0px));width:56px;height:56px;z-index:4;border:2px solid #cdb0ff;border-radius:50%;background:#442264 url(a/ui/sk/fan_spin.webp) center/cover no-repeat;box-shadow:0 0 13px #b54fff;touch-action:none;padding:0}
-body #musou:disabled{filter:grayscale(1) brightness(.46)!important;opacity:.62;box-shadow:none!important}
+/* 보라색 대형 버튼 제거. 대시 옆 작은 무쌍 트리거만 남긴다. */
+body #musou{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 285px);bottom:calc(var(--barh,64px) + 130px + env(safe-area-inset-bottom,0px));width:43px;height:43px;z-index:4;border:1.5px solid #f4d88e;border-radius:50%;background:radial-gradient(circle at 38% 30%,#574b38,#1b1a1e);font:800 23px system-ui,sans-serif;color:#ffe5a3;text-shadow:0 1px 2px #000;box-shadow:0 0 12px rgba(255,210,110,.55);touch-action:none;padding:0}
+body #musou:disabled{filter:grayscale(1)!important;opacity:.42;box-shadow:none!important;border-color:#aaa;color:#b7b7b7}
 body #musou:not(:disabled):active{transform:scale(.92);filter:brightness(1.3)}
 body #cmd{left:calc(max(16px,env(safe-area-inset-left,0px)) + 12px)!important;top:43%!important;bottom:auto!important;width:54px!important;height:54px!important}
 body #cmdm{left:calc(max(16px,env(safe-area-inset-left,0px)) + 70px)!important;top:33%!important;bottom:auto!important}
@@ -78,6 +79,6 @@ body #cmdm{left:calc(max(16px,env(safe-area-inset-left,0px)) + 70px)!important;t
 .mu #spw{display:block!important}
 /* 오디오 설정 버튼은 설정 패널로 옮기기 전까지 화면에 띄우지 않는다. */
 #soundControls{display:none!important}
-@media(max-width:430px){body #musou{right:calc(max(16px,env(safe-area-inset-right,0px)) + 198px);bottom:calc(var(--barh,64px) + 199px + env(safe-area-inset-bottom,0px));width:50px;height:50px}}
+@media(max-width:700px){body #musou{right:calc(max(16px,env(safe-area-inset-right,0px)) + 216px);bottom:calc(var(--barh,64px) + 201px + env(safe-area-inset-bottom,0px));width:40px;height:40px}}
 """
 rep('#dbf{font-size:12px;',css+'\n#dbf{font-size:12px;')
