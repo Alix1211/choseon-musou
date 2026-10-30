@@ -30,10 +30,17 @@ jobs:
       - name: Build installable debug APK
         working-directory: android
         run: gradle --no-daemon --stacktrace assembleDebug
-      - name: Store APK
+      - name: Verify test signature and package version
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          "$SDK/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$SDK/build-tools/35.0.0/aapt" dump badging "$APK" | grep -m1 "package: name='com.kane.choseonmusou' versionCode='"
+      - name: Store stable-signing APK
         uses: actions/upload-artifact@v4
         with:
-          name: choseon-musou-combo-debug-apk
+          name: choseon-musou-stable-update-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14

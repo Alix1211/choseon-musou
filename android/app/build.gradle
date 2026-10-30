@@ -6,12 +6,31 @@ android {
     namespace 'com.kane.choseonmusou'
     compileSdk 35
 
+    // Test/prototype signature, reused from this owner's ARPG project to avoid
+    // changing the certificate on every GitHub Actions runner.
+    // Do NOT use this publicly stored test key for a production release.
+    signingConfigs {
+        stableTest {
+            storeFile rootProject.file('choseon-test.keystore')
+            storePassword 'arpg1234'
+            keyAlias 'arpg'
+            keyPassword 'arpg1234'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.stableTest
+        }
+    }
+
     defaultConfig {
         applicationId 'com.kane.choseonmusou'
         minSdk 24
         targetSdk 32
-        versionCode 3
-        versionName '0.3-musou'
+        // Seconds since 2025-01-01 UTC. Increases across fresh GitHub runners.
+        versionCode ((int) (System.currentTimeMillis() / 1000L - 1735689600L))
+        versionName '0.4-stable-update'
     }
 
     compileOptions {
