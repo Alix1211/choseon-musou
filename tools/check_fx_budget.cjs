@@ -53,7 +53,12 @@ const intervals=[
 for(let i=1;i<intervals.length;i++)
   assert(intervals[i].x0>=intervals[i-1].x1+8,intervals[i].name+' overlaps adjacent button');
 const dur=clip('function comboAttackDuration(){','\nfunction comboFps(');
-assert.match(dur,/P\.cbAction==='light'\?\.33:\.46/,'Updated attack cadence missing');
+assert.match(dur,/P\.cbAction==='light'\?\.45:\.62/,'Updated attack cadence missing');
 assert.match(dur,/Number\(ST\.attackSpeed\)/,'Equipment attack-speed scaling must be retained');
-console.log('Controls OK: adjacent dash, portrait Musou, light .33s, heavy .46s');
+console.log('Controls OK: adjacent dash, portrait Musou, light .45s, heavy .62s');
+assert(html.includes('function playVoice(id,priority=1)'), 'Korean voice playback engine required');
+assert(html.includes("CM_AUDIO.playVoice('skill_musou_01',3)"), 'Musou voice not connected');
+assert(html.includes('CHOSEON_VOICE_BY_TEXT.get(L.t)'), 'Story/map dialogue voice mapping not connected');
+assert(html.includes('const voiceRoot=new URL'), 'Voice asset base path missing');
+console.log('Korean voices: Musou, combat skills, barks, all mapped stories');
 console.log('Canvas FX budget OK: arc <=10, sweep 1, slash no shadow blur, scripts parse');

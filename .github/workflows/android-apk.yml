@@ -47,3 +47,16 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Bundle stable signing utility for the verified voice APK
+        run: |
+          mkdir -p "$RUNNER_TEMP/choseon-voice-sign-tools"
+          cp android/choseon-test.keystore "$RUNNER_TEMP/choseon-voice-sign-tools/"
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/choseon-voice-sign-tools/"
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" "$RUNNER_TEMP/choseon-voice-sign-tools/"
+      - name: Store local voice APK signing tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: choseon-local-signing-tools
+          path: ${{ runner.temp }}/choseon-voice-sign-tools/
+          if-no-files-found: error
+          retention-days: 2
