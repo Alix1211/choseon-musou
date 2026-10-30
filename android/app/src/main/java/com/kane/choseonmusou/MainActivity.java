@@ -45,17 +45,14 @@ public final class MainActivity extends Activity {
     private static final int MAX_SAVE_BYTES = 14 * 1024 * 1024;
     private WebView webView;
     private byte[] liveIndex;
-    private String pendingBackup;
     private boolean alive = true;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
-    private SharedPreferences cloud;
-    private volatile long lastAutoBackupTime = 0L;
+    private SaveSyncManager sync;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        cloud = getSharedPreferences("choseon_cloud", MODE_PRIVATE);
         immersive();
         WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
@@ -70,7 +67,8 @@ public final class MainActivity extends Activity {
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
-        webView.addJavascriptInterface(new SaveBridge(), "ChoseonNative");
+        sync = new SaveSyncManager(this, webView);
+        webView.addJavascriptInterface(sync, "ChoseonNative");
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -156,105 +154,9 @@ public final class MainActivity extends Activity {
         } catch (Exception e) {return null;}
     }
 
-    private class SaveBridge {
-        @JavascriptInterface public boolean hasBackupFile() {
-            return !cloud.getString("uri", "").isEmpty();
-        }
-        @JavascriptInterface public void createBackup(String json) {
-            if(json == null || json.length() > MAX_SAVE_BYTES) {report(false,"백업 데이터가 너무 큽니다");return;}
-            main.post(() -> {
-                String stored=cloud.getString("uri","");
-                if(!stored.isEmpty()) {writeJson(Uri.parse(stored),json,false);return;}
-                pendingBackup=json;
-                Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("application/json");
-                intent.putExtra(Intent.EXTRA_TITLE,"Choseon-Musou-Save.json");
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION |
-                                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-                try {startActivityForResult(intent,CREATE_SAVE);}
-                catch(Exception e){pendingBackup=null;report(false,"Android 파일 저장 창을 열 수 없습니다");}
-            });
-        }
-        @JavascriptInterface public void autoBackup(String json) {
-            String stored=cloud.getString("uri","");
-            if(stored.isEmpty() || json==null || json.length()>MAX_SAVE_BYTES)return;
-            long now=System.currentTimeMillis();
-            if(now-lastAutoBackupTime<90000)return;
-            lastAutoBackupTime=now;
-            writeJson(Uri.parse(stored),json,true);
-        }
-        @JavascriptInterface public void openBackup() {
-            main.post(() -> {
-                Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("application/json");
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                try {startActivityForResult(intent,OPEN_SAVE);}
-                catch(Exception e){report(false,"Android 파일 열기 창을 열 수 없습니다");}
-            });
-        }
-    }
-
-    private void writeJson(Uri uri, String json, boolean automatic) {
-        io.execute(() -> {
-            try {
-                JSONObject parsed = new JSONObject(json);
-                if(!"choseon-musou-drive-backup".equals(parsed.optString("format")))
-                    throw new Exception("백업 형식이 올바르지 않습니다");
-                try(OutputStream output=getContentResolver().openOutputStream(uri,"wt")) {
-                    if(output==null)throw new Exception("선택한 저장소를 열 수 없습니다");
-                    output.write(json.getBytes(StandardCharsets.UTF_8));
-                    output.flush();
-                }
-                cloud.edit().putString("uri",uri.toString()).apply();
-                if(!automatic)report(true,"저장 파일을 기록했습니다. Google Drive를 선택했다면 Drive에서 확인하세요.");
-            } catch(Exception e) {
-                if(!automatic)report(false,"백업 실패: "+e.getMessage());
-                // A stale, disconnected provider must not be silently overwritten.
-                if(automatic)cloud.edit().remove("uri").apply();
-            }
-        });
-    }
-
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data) {
         super.onActivityResult(requestCode,resultCode,data);
-        if(resultCode!=RESULT_OK||data==null||data.getData()==null){
-            if(requestCode==CREATE_SAVE){pendingBackup=null;report(false,"저장을 취소했습니다");}
-            return;
-        }
-        Uri uri=data.getData();
-        if(requestCode==CREATE_SAVE) {
-            try {
-                getContentResolver().takePersistableUriPermission(uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            }catch(Exception ignored){}
-            String json=pendingBackup;pendingBackup=null;
-            if(json!=null)writeJson(uri,json,false);
-        } else if(requestCode==OPEN_SAVE) {
-            io.execute(() -> {
-                try(InputStream input=getContentResolver().openInputStream(uri)) {
-                    if(input==null)throw new Exception("선택한 파일을 열 수 없습니다");
-                    ByteArrayOutputStream out=new ByteArrayOutputStream();
-                    byte[] buf=new byte[8192];int n;
-                    while((n=input.read(buf))!=-1){
-                        if(out.size()+n>MAX_SAVE_BYTES)throw new Exception("저장 파일이 너무 큽니다");
-                        out.write(buf,0,n);
-                    }
-                    String json=out.toString("UTF-8");
-                    evaluate("window.ChoseonCloud&&window.ChoseonCloud.importJson(" +
-                             JSONObject.quote(json)+")");
-                } catch(Exception e){report(false,"복원 파일 읽기 실패: "+e.getMessage());}
-            });
-        }
-    }
-
-    private void report(boolean ok,String message){
-        evaluate("window.ChoseonCloud&&window.ChoseonCloud.onNativeStatus("+
-                ok+","+JSONObject.quote(message)+")");
-    }
-    private void evaluate(String script) {
-        main.post(() -> {if(alive&&webView!=null)webView.evaluateJavascript(script,null);});
+        if(sync!=null)sync.onActivityResult(requestCode,resultCode,data);
     }
 
     @SuppressWarnings("deprecation")
@@ -268,13 +170,14 @@ public final class MainActivity extends Activity {
         super.onWindowFocusChanged(focused);if(focused)immersive();
     }
     @Override protected void onPause() {
+        if(sync!=null)sync.flushOnPause();
         if(webView!=null){
             webView.evaluateJavascript("if(typeof pauseGame==='function'&&typeof UI!=='undefined'&&UI.mode==='battle'&&!UI.paused)pauseGame(true)",null);
             webView.onPause();
         }
         super.onPause();
     }
-    @Override protected void onResume() {super.onResume();if(webView!=null)webView.onResume();immersive();}
+    @Override protected void onResume() {super.onResume();if(webView!=null)webView.onResume();immersive();if(sync!=null)sync.onResume();}
     @SuppressWarnings("deprecation")
     @Override public void onBackPressed() {
         if(webView!=null)webView.evaluateJavascript(
@@ -283,6 +186,7 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onDestroy() {
         alive=false;
+        if(sync!=null)sync.shutdown();
         if(webView!=null){webView.destroy();webView=null;}
         io.shutdownNow();
         super.onDestroy();

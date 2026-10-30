@@ -32,6 +32,13 @@ jobs:
         run: node tools/check_fx_budget.cjs
       - name: Check safe live updates and Drive backup wiring
         run: node tools/check_live_cloud.cjs
+      - name: Check ARPG Drive save sync protocol
+        run: node tools/check_drive_sync.cjs
+      - name: Test ARPG baseT decide port (16 exact decision cases)
+        run: |
+          mkdir -p /tmp/choseon-decide-tests
+          javac -d /tmp/choseon-decide-tests android/app/src/main/java/com/kane/choseonmusou/SaveSyncDecider.java tools/SaveSyncDeciderTest.java
+          java -cp /tmp/choseon-decide-tests com.kane.choseonmusou.SaveSyncDeciderTest
       - name: Prevent ranged-whip effects from returning
         run: node tools/check_whip_melee.cjs
       - name: Build installable debug APK
