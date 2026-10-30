@@ -4,7 +4,7 @@ let now=1000;
 const P={mode:'manual',hp:1000,face:'right',x:100,y:100,atk:null,sk:null,skHit:null,state:'idle'};
 const ST={wt:'sword',rng:1,prc:0};
 const ctx={
-  performance:{now:()=>now},P,ST,UI:{mode:'battle',paused:false},CH:60,
+  performance:{now:()=>now},P,ST,UI:{mode:'battle',paused:false},CH:60,ULT:{active:false},
   fx:[],pops:[],orbs:[],shake:0,CB:undefined,
   faceTo:()=> 'right',
   manualAim:()=>({m:{x:200,y:100},d:100}),
@@ -35,5 +35,6 @@ comboReset();P.atk='sword';
 assert.equal(comboPress('light'),true);
 assert.equal(comboPress('heavy'),false,'second pending input is rejected');
 assert.equal(CB.pending.kind,'light','pending input never overwritten');
-now+=500;tick();assert.equal(CB.pending,null,'expired input removed');
+now+=1000;tick();assert.equal(CB.pending,null,'expired input removed');
+assert.equal(P.cbMove,null,'expired input did not start a move');
 console.log('PASS no repeat / one-slot buffer / expiry');

@@ -27,7 +27,7 @@ function comboBegin(entry,n,inp){
   let move=null;
   if(CB.dashUntil>now){move=kind==='light'?'dashLight':'dashHeavy';CB.dashUntil=0;CB.seq='';}
   else{
-    if(w!==CB.weapon||now-CB.last>1000)CB.seq='';
+    if(w!==CB.weapon||now-CB.last>1550)CB.seq='';
     CB.seq+=letter;
     move=COMBO_MOVES[CB.seq]||null;
     if(move)CB.seq='';
@@ -60,25 +60,25 @@ function comboTick(dt,n,inp){
   }
   if(CB.pending){
     const p=CB.pending;
-    if(comboNow()-p.at>430){CB.pending=null;}
+    if(comboNow()-p.at>950){CB.pending=null;}
     else if(!P.atk&&!P.sk&&!P.skHit){CB.pending=null;comboBegin(p,n,inp);}
   }
 }
 function comboFps(e){
   if(!P.cbAction)return e.fps*SPD[P.atk]*(P.slowT>0?.6:1);
-  const duration=P.cbMove==='spin'?1.12:P.cbMove==='pierce'?.42:P.cbMove==='dashLight'?.38:P.cbMove==='rocks'?.48:P.cbAction==='light'?.27:.38;
+  const duration=P.cbMove==='spin'?2.24:P.cbMove==='pierce'?.84:P.cbMove==='dashLight'?.76:P.cbMove==='rocks'?.96:P.cbAction==='light'?.54:.76;
   return e.frames/duration*(P.slowT>0?.65:1);
 }
 function comboDamage(m,power,kb,ang,stun){
   const w=P.cbWeapon||ST.wt;
-  hitMob(m,stat.atk()*power,w,kb,ang);
+  hitMob(m,stat.atk()*power*(w==='fan'?.78:w==='whip'?.85:1),w,kb,ang);
   if(!m.dead&&!m.boss&&stun)m.stun=Math.max(m.stun,stun);
 }
 function comboBolt(x,y,tx,ty){fx.push({k:'bolt',x,y,tx,ty,t:0,life:.23});}
 function comboStrike(move,part){
   const w=P.cbWeapon||ST.wt,a=P.cbAngle||0,px=P.x,py=P.y,ct=Math.cos(a),st=Math.sin(a),list=liveMobs();
   const radial=move==='spin'||move==='slam'||move==='rocks'||move==='dashHeavy';
-  const radius=move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='whip'?375:w==='fan'?440:240;
+  const radius=move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='whip'?215:w==='fan'?440:240;
   const power=move==='spin'?.67:move==='rocks'?2.3:move==='slam'?1.7:move==='dashHeavy'?1.05:move==='dashLight'?.65:move==='arc'?1.7:1.8;
   const kb=move==='dashHeavy'?470:move==='slam'||move==='rocks'?390:move==='spin'?240:move==='dashLight'?135:225;
   fx.push({k:radial?'shock':'sweep',x:px,y:radial?py:py-CH*.3,t:0,life:.32,R:radius,a,ha:move==='arc'?1.18:.54,col:w==='whip'?'75,205,255':w==='fan'?'170,105,255':'255,205,110',col2:'255,255,255',small:move==='dashHeavy'});
