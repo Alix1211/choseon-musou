@@ -29,9 +29,9 @@
       box.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(10,7,20,.72);color:#fff6dd;font:700 23px system-ui;text-align:center;pointer-events:auto';
       document.body.appendChild(box);
     }
-    box.textContent=text;box.hidden=false;return box;
+    box.textContent=text;box.hidden=false;box.style.display='flex';return box;
   }
-  const hideOverlay=()=>{const box=document.getElementById('cloudSyncCover');if(box)box.hidden=true;};
+  const hideOverlay=()=>{const box=document.getElementById('cloudSyncCover');if(box){box.hidden=true;box.style.display='none';}};
   async function defaultCut(){
     if(typeof cutDB!=='function')return null;
     const db=await cutDB();
@@ -86,7 +86,9 @@
     guardTimer=setTimeout(()=>onSyncDone(),20000);
   }
   function onSyncDone(){
-    if(window.CHOSEON_SYNC_CONFLICT||window.CHOSEON_BACKUP_RESTORING)return;
+    if(window.CHOSEON_BACKUP_RESTORING)return;
+    // The native side calls this only after the user's conflict choice was applied.
+    if(window.CHOSEON_SYNC_CONFLICT){flag('CHOSEON_SYNC_CONFLICT',false);const cb=document.getElementById('cloudSyncConflict');if(cb)cb.remove();}
     clearTimeout(guardTimer);busy=false;
     flag('CHOSEON_SYNC_CHECKING',false);hideOverlay();
     if(syncPausedGame){syncPausedGame=false;try{if(typeof UI!=='undefined')UI.paused=false;}catch(e){}}
