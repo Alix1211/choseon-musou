@@ -18,6 +18,7 @@ function app(){
    return elements[id];
  }
  const ctx={
+   HN:{choseon:'초선',...Object.fromEntries(ids.map(i=>[i,i]))},
    S:{lv:24,roster:[],party:[],hl:Object.fromEntries(ids.map(i=>[i,16])),hx:{},xp:50},
    ST:{wt:'sword',atk:300,maxHp:1800,def:90,crit:15,cdr:10},
    P:{x:500,y:650,hp:1260,mode:'manual',state:'idle',face:'down',atk:null,sk:null,skHit:null,
