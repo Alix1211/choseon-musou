@@ -32,6 +32,8 @@ jobs:
         run: node tools/check_fx_budget.cjs
       - name: Check safe live updates and Drive backup wiring
         run: node tools/check_live_cloud.cjs
+      - name: Prevent ranged-whip effects from returning
+        run: node tools/check_whip_melee.cjs
       - name: Build installable debug APK
         working-directory: android
         run: gradle --no-daemon --stacktrace assembleDebug
