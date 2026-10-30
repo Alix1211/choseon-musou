@@ -57,8 +57,20 @@ assert.match(dur,/P\.cbAction==='light'\?\.45:\.62/,'Updated attack cadence miss
 assert.match(dur,/Number\(ST\.attackSpeed\)/,'Equipment attack-speed scaling must be retained');
 console.log('Controls OK: adjacent dash, portrait Musou, light .45s, heavy .62s');
 assert(html.includes('function playVoice(id,priority=1)'), 'Korean voice playback engine required');
-assert(html.includes("CM_AUDIO.playVoice('skill_musou_01',3)"), 'Musou voice not connected');
+assert(html.includes("CM_AUDIO.playVoice('skill_musou_01',1)"), 'Musou should be last-priority voice');
 assert(html.includes('CHOSEON_VOICE_BY_TEXT.get(L.t)'), 'Story/map dialogue voice mapping not connected');
 assert(html.includes('const voiceRoot=new URL'), 'Voice asset base path missing');
+// Priority regression: skills cannot cut any other voice, but dialogue
+// must cut even a buffered/decoding low-priority skill.
+const voiceBody=clip('  function playVoice(id,priority=1){',"  const controls=document.createElement('div');controls.id='soundControls';");
+assert(voiceBody.includes('voicePending||!!voiceActive||now<voiceDeadline'), 'Pending audio must also block low-priority skills');
+assert(voiceBody.includes('if(priority===1&&busy)return false;'), 'Skill voice must never interrupt an active voice');
+assert(voiceBody.includes('if(busy&&priority<voicePriority)return false;'), 'Lower priority voice must not interrupt a higher one');
+assert(html.includes("CM_AUDIO.playVoice('skill_'+w+'_0'+voiceNum,1)"), 'Combo skill is not low-priority');
+assert(html.includes("CM_AUDIO.playVoice('skill_'+w+'_0'+(i+8),1)"), 'Active skill is not low-priority');
+assert(html.includes("CM_AUDIO.playVoice('battle_'+(kind==='ult'?'ultimate':kind)+'_0'+(i+1),2)"), 'Barks must override skills');
+assert(html.includes('if(id)CM_AUDIO.playVoice(id,3);'), 'Story lines must override all attack speech');
+console.log('Voice priorities OK: skill 1 < battle 2 < story 3');
+
 console.log('Korean voices: Musou, combat skills, barks, all mapped stories');
 console.log('Canvas FX budget OK: arc <=10, sweep 1, slash no shadow blur, scripts parse');

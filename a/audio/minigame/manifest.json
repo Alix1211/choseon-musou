@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "status": "planned_binary_files_not_yet_uploaded",
+  "source": "User-provided MP3 assets in ChatGPT conversation, 2026-10-30",
+  "use": "post-mission illustration mini-game",
+  "notes": "Beat values are supplied BPM labels; sync offset to be verified when gameplay is designed.",
+  "tracks": [
+    {
+      "bpm": 90,
+      "original_name": "USE_타격음악_90BPM_합본.mp3",
+      "path": "a/audio/minigame/bpm_90.mp3",
+      "sha256": "6e2d4e5f016cd57d1e0c7c48915097fab5a9ca6f70bc652e705b04dbcbd684eb",
+      "duration_seconds": 120.033,
+      "size_bytes": 2401220,
+      "codec": "mp3",
+      "sample_rate_hz": 44100,
+      "channels": 2,
+      "repository_uploaded": false
+    },
+    {
+      "bpm": 120,
+      "original_name": "USE_타격음악_120BPM_합본.mp3",
+      "path": "a/audio/minigame/bpm_120.mp3",
+      "sha256": "7d228f608c9af4a5d7b51f5f6cc03167541151e7c221d5ad0966afd60ba3416c",
+      "duration_seconds": 120.033,
+      "size_bytes": 2401220,
+      "codec": "mp3",
+      "sample_rate_hz": 44100,
+      "channels": 2,
+      "repository_uploaded": false
+    },
+    {
+      "bpm": 150,
+      "original_name": "USE_타격음악_150BPM_합본.mp3",
+      "path": "a/audio/minigame/bpm_150.mp3",
+      "sha256": "2e48df7c6a33f69da6ca45b70fe9424f6105d8913f04ba7defcc10299c0d656c",
+      "duration_seconds": 120.033,
+      "size_bytes": 2401220,
+      "codec": "mp3",
+      "sample_rate_hz": 44100,
+      "channels": 2,
+      "repository_uploaded": false
+    }
+  ]
+}

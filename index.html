@@ -1148,7 +1148,9 @@ const CM_AUDIO=(()=>{
   let unlocked=false,ctx=null,gain=null,track='',playing=0;
   const buffers={},loading={},last={};
   const voiceCache={},voiceLoading={};
-  let voiceActive=null,voicePriority=0,voiceDeadline=0,voiceToken=0,lastBattleVoice=0;
+  let voiceActive=null,voicePriority=0,voiceDeadline=0,voicePending=false,voiceToken=0,lastBattleVoice=0;
+  // Voice priority: 1=skill name (disposable), 2=battle bark, 3=story/dialogue.
+  // Skills never queue, never interrupt and yield instantly to higher-priority voices.
   const names=['swing','thrust','slash','spin','hit','punch','explosion','heal','teleport','staff'];
   const music=new Audio();music.loop=true;music.preload='none';music.volume=.38;
   function load(name){
@@ -1179,7 +1181,7 @@ const CM_AUDIO=(()=>{
   function stopVoice(){
     ++voiceToken;
     if(voiceActive){try{voiceActive.stop();}catch(e){}voiceActive=null;}
-    voicePriority=0;voiceDeadline=0;
+    voicePriority=0;voiceDeadline=0;voicePending=false;
   }
   function voiceFile(id){
     if(!/^(skill|battle|stage|map|event)_[a-zA-Z0-9_]+$/.test(id))return null;
@@ -1190,20 +1192,37 @@ const CM_AUDIO=(()=>{
     if(!unlocked||!settings.sfx||document.hidden||!ctx||ctx.state!=='running')return false;
     if(UI.paused&&UI.mode!=='dlg')return false;
     const url=voiceFile(id);if(!url)return false;
-    const now=performance.now();
-    if(priority===1&&(now-lastBattleVoice<3500||now<voiceDeadline))return false;
-    if(priority===2&&now<voiceDeadline&&voicePriority>=2)return false;
-    if(priority<voicePriority&&now<voiceDeadline)return false;
-    if(priority===1)lastBattleVoice=now;
-    stopVoice();const token=voiceToken;voicePriority=priority;
+    const now=performance.now(),busy=voicePending||!!voiceActive||now<voiceDeadline;
+    // Skill voice is the very last priority: skip it whenever any other
+    // dialogue, combat bark or skill is playing/being loaded. No catch-up.
+    if(priority===1&&busy)return false;
+    // A battle bark may replace a skill mid-word, but not another bark or
+    // story voice. Keep the existing anti-spam interval for barks.
+    if(priority===2&&(now-lastBattleVoice<3500||(busy&&voicePriority>=2)))return false;
+    if(busy&&priority<voicePriority)return false;
+    if(priority===2)lastBattleVoice=now;
+    stopVoice();
+    const token=voiceToken;
+    voicePriority=priority;voicePending=true;
+    const clearPending=()=>{
+      if(token===voiceToken&&!voiceActive){
+        voicePending=false;voicePriority=0;voiceDeadline=0;
+      }
+    };
     function start(b){
-      if(!b||token!==voiceToken||!settings.sfx||document.hidden||!ctx||ctx.state!=='running')return;
+      if(token!==voiceToken)return;
+      if(!b||!settings.sfx||document.hidden||!ctx||ctx.state!=='running'){
+        clearPending();return;
+      }
       const src=ctx.createBufferSource();src.buffer=b;
       const vol=ctx.createGain();vol.gain.value=priority===3?.77:.86;
       src.connect(vol);vol.connect(ctx.destination);
-      src.onended=()=>{if(voiceActive===src){voiceActive=null;voicePriority=0;voiceDeadline=0;}};
-      voiceActive=src;voiceDeadline=performance.now()+b.duration*1000;
-      src.start();
+      src.onended=()=>{if(voiceActive===src){
+        voiceActive=null;voicePending=false;voicePriority=0;voiceDeadline=0;
+      }};
+      voiceActive=src;voicePending=false;
+      voiceDeadline=performance.now()+b.duration*1000;
+      try{src.start();}catch(e){voiceActive=null;clearPending();}
     }
     if(voiceCache[id])start(voiceCache[id]);
     else{
@@ -1211,7 +1230,7 @@ const CM_AUDIO=(()=>{
         .then(r=>{if(!r.ok)throw Error('Missing voice '+id);return r.arrayBuffer();})
         .then(b=>ctx.decodeAudioData(b)).then(b=>voiceCache[id]=b)
         .catch(()=>null));
-      load.then(start);
+      load.then(start,clearPending);
     }
     return true;
   }
@@ -1287,7 +1306,7 @@ function useSkill(i,n,inp){
   CM_AUDIO.play(w==='sword'?(i===0?'thrust':'slash'):w==='whip'?'spin':'staff');
   pops.push({x:P.x,y:P.y-CH*2.3,t:0,txt:SK[w][i].n,col:'#ffd0ec',size:16,vy:-34});
   bark(i===1?'ult':'charge');
-  CM_AUDIO.playVoice('skill_'+w+'_0'+(i+8),2);
+  CM_AUDIO.playVoice('skill_'+w+'_0'+(i+8),1);
   if(w==='sword'&&i===0){
     const f=fwd(),a=(inp&&(inp.x||inp.y))?Math.atan2(inp.y,inp.x):(t?Math.atan2(t.y-P.y,t.x-P.x):Math.atan2(f.y-P.y,f.x-P.x));
     startAttack('sword',{x:P.x+Math.cos(a)*60,y:P.y+Math.sin(a)*60});P.hitDone=true;
@@ -3871,7 +3890,7 @@ function comboBegin(entry,n,inp){
     const name=(w==='whip'?'⚡ ':w==='fan'?'✦ ':'')+labels[w][move];
     pops.push({x:P.x,y:P.y-CH*2.15,t:0,txt:name,col:w==='whip'?'#91edff':w==='fan'?'#e2aeff':'#ffe29d',size:17,vy:-38});
     const voiceNum={arc:1,pierce:2,spin:3,slam:4,rocks:5,dashLight:6,dashHeavy:7}[move];
-    if(voiceNum)CM_AUDIO.playVoice('skill_'+w+'_0'+voiceNum,2);
+    if(voiceNum)CM_AUDIO.playVoice('skill_'+w+'_0'+voiceNum,1);
   }
   return true;
 }
@@ -3981,7 +4000,7 @@ function musouStart(){
       at:i*.18,fall:.29+i%3*.025,done:false,last:i===14,size:i===14?128:rnd(63,88),rot:rnd(-.35,.35)};
   });
   CM_AUDIO.play('spin');
-  CM_AUDIO.playVoice('skill_musou_01',3);
+  CM_AUDIO.playVoice('skill_musou_01',1);
   return true;
 }
 
@@ -4564,7 +4583,7 @@ function bark(kind){
   bark.t=now;
   const a=BARK[kind],i=Math.floor(Math.random()*a.length),l=a[i];
   pops.push({x:P.x,y:P.y-CH*3.1,t:0,txt:l,col:'#ffd0ee',size:kind==='ult'?24:19,vy:-18,life:1.9});
-  CM_AUDIO.playVoice('battle_'+(kind==='ult'?'ultimate':kind)+'_0'+(i+1),1);
+  CM_AUDIO.playVoice('battle_'+(kind==='ult'?'ultimate':kind)+'_0'+(i+1),2);
 }
 
 /* ── 동작 ── */
