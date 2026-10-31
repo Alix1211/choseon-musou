@@ -49,6 +49,7 @@ public final class MainActivity extends Activity {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private SaveSyncManager sync;
+    private GameHaptics haptics;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -69,6 +70,8 @@ public final class MainActivity extends Activity {
         settings.setDisplayZoomControls(false);
         sync = new SaveSyncManager(this, webView);
         webView.addJavascriptInterface(sync, "ChoseonNative");
+        haptics = new GameHaptics(this);
+        webView.addJavascriptInterface(haptics, "ChoseonHaptics");
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
@@ -171,6 +174,7 @@ public final class MainActivity extends Activity {
         super.onWindowFocusChanged(focused);if(focused)immersive();
     }
     @Override protected void onPause() {
+        if(haptics!=null)haptics.cancel();
         if(sync!=null)sync.flushOnPause();
         if(webView!=null){
             webView.evaluateJavascript("if(typeof pauseGame==='function'&&typeof UI!=='undefined'&&UI.mode==='battle'&&!UI.paused)pauseGame(true)",null);
@@ -187,6 +191,7 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onDestroy() {
         alive=false;
+        if(haptics!=null)haptics.cancel();
         if(sync!=null)sync.shutdown();
         if(webView!=null){webView.destroy();webView=null;}
         io.shutdownNow();

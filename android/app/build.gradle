@@ -30,7 +30,7 @@ android {
         targetSdk 32
         // Seconds since 2025-01-01 UTC. Increases across fresh GitHub runners.
         versionCode ((int) (System.currentTimeMillis() / 1000L - 1735689600L))
-        versionName '0.11-hero-attack'
+        versionName '0.12-native-haptics'
     }
 
     compileOptions {

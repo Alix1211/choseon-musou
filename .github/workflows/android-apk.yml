@@ -50,6 +50,8 @@ jobs:
         run: node tools/check_ground_combo.cjs
       - name: Check rare elemental magic troops without changing saves or mission counts
         run: node t_magic_troops.cjs
+      - name: Verify native Android vibration cues and safe browser fallback
+        run: node t_haptics.cjs
       - name: Test real whip hit functions vs visual range
         run: node tools/test_whip_reach.cjs
       - name: Test all nine playable heroines and two-member party swapping
