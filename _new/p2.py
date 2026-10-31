@@ -104,6 +104,8 @@ if not os.environ.get('NOD'):
         "CB.pending=null;CB.queued.length=0;CB.seq='';CB.last=0;CB.dashUntil=0;CB.dash=null;")
     exec(open(B+'_new/p2magic.py',encoding='utf-8').read())
     exec(open(B+'_new/p2haptics.py',encoding='utf-8').read())
+    # 초선 검술 시범 패치: 다른 영웅·무기에는 영향 없는 런타임 래퍼.
+    rep('let last=performance.now();\nfunction loop(now){',rd('m3_choseon_sword.js')+'\nlet last=performance.now();\nfunction loop(now){')
     open(B+'index.html','w',encoding='utf-8').write(src)
 
 print('ok',len(src))
