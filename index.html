@@ -2564,7 +2564,8 @@ function mkCol(tx,ty,o){
   const col={idx:m.colonies.length,room:{x:Math.floor(tx)-3,y:Math.floor(ty)-3,w:6,h:6,cx:Math.floor(tx),cy:Math.floor(ty)},cx:cx_,cy:cy_,mobs:[],woken:false,cleared:false,boss:false,hold:!!o.hold,tag:o.tag||''};
   if(o.leader){
     const lt=o.npcBossType||(yk?pickWeighted([['jiangshi',1],['fox',1],['egg',1]]):pickWeighted([['spear',1],['cav',1]]));
-    const L=createMob(lt,set,cx_,cy_,col,true);
+    const leaderSet=o.npcBossType&&yk?(stageSet(m.n)||m.set||'1'):set;
+    const L=createMob(lt,leaderSet,cx_,cy_,col,true);
     L.leader=true;col.lead=L;
     L.aur=o.captain?330:250;L.auk=o.captain?.4:.28;
     if(o.captain){L.captain=true;L.hp*=2.4;L.maxHp=L.hp;L.gold*=3;L.scale*=1.18;}

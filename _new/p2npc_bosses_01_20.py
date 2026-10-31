@@ -2,6 +2,11 @@
 rep("function buildMusou(cfg){",rd('m3_npc_bosses_01_20.js')+"\nfunction buildMusou(cfg){")
 rep("const lt=yk?pickWeighted([['jiangshi',1],['fox',1],['egg',1]]):pickWeighted([['spear',1],['cav',1]]);",
     "const lt=o.npcBossType||(yk?pickWeighted([['jiangshi',1],['fox',1],['egg',1]]):pickWeighted([['spear',1],['cav',1]]));")
+# Dungeon/cave rooms can roll the yokai atlas ('y'), which contains no spear,
+# bow or cavalry frames. A forced human NPC boss must use its country's atlas;
+# the surrounding yokai soldiers retain their original spawn distribution.
+rep("const L=createMob(lt,set,cx_,cy_,col,true);",
+    "const leaderSet=o.npcBossType&&yk?(stageSet(m.n)||m.set||'1'):set;\n    const L=createMob(lt,leaderSet,cx_,cy_,col,true);")
 rep("if(sp.last){const c0=mkCol(w[0]+.5,w[1]+.5,{n:7,leader:true,captain:true,set:setFor()});m.captain=c0.lead;}",
     "if(sp.last){const d=NPC_STAGE_BOSSES[n];const c0=mkCol(w[0]+.5,w[1]+.5,{n:7,leader:true,captain:true,set:setFor(),npcBossType:n<=20&&d?d.type:null});m.captain=c0.lead;}")
 rep("    warmGround(m,P.x,P.y);","    npcStageInit(m);\n    warmGround(m,P.x,P.y);")
