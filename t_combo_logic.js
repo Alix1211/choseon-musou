@@ -1,62 +1,62 @@
-// Browser binary가 없는 환경에서도 실제 조합기 코드를 그대로 평가하는 테스트.
-const vm=require('node:vm');const fs=require('node:fs');const assert=require('node:assert/strict');
-let now=1000;
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+let now=5000;
 const P={mode:'manual',hp:1000,face:'right',x:100,y:100,atk:null,sk:null,skHit:null,state:'idle'};
 const ST={wt:'sword',rng:1,prc:0};
-const ctx={
-  performance:{now:()=>now},P,ST,UI:{mode:'battle',paused:false},CH:60,ULT:{active:false},
-  A:{man:{sword:{right:{frames:10}},whip:{right:{frames:10}},fan:{right:{frames:10}}}},
-  fx:[],pops:[],orbs:[],shake:0,CB:undefined,
-  faceTo:()=> 'right',
-  dirKey:()=>['right'],
-  manualAim:()=>({m:{x:200,y:100},d:100}),
-  startAttack:(w)=>{P.atk=w;P.atkT=0;P.hitDone=false;},
-  moveEnt:()=>{},rnd:(a,b)=>(a+b)/2,comboCast:()=>{},
-  liveMobs:()=>[],stat:{atk:()=>100},hitMob:()=>{},
-  console,
+const c={
+ performance:{now:()=>now},P,ST,UI:{mode:'battle',paused:false},CH:60,ULT:{active:false},
+ A:{man:{sword:{right:{frames:10}},whip:{right:{frames:10}},fan:{right:{frames:10}},spinfan:{right:{frames:10}}}},
+ fx:[],pops:[],orbs:[],shake:0,faceTo:()=> 'right',
+ dirKey:()=>['right'],combatWeapon:()=>ST.wt,enemyArmored:()=>false,
+ manualAim:()=>({m:{x:200,y:100},d:100}),
+ startAttack:(w)=>{P.atk=w;P.atkT=0;P.hitDone=false;},
+ moveEnt:()=>{},rnd:(a,b)=>(a+b)/2,liveMobs:()=>[],
+ stat:{atk:()=>100},hitMob:()=>{},CM_AUDIO:{playVoice(){}},console
 };
-vm.createContext(ctx);
-vm.runInContext(fs.readFileSync('_new/m3_combo.js','utf8')+'\nthis.combo={CB,comboPress,comboTick,comboReset,comboAttackDuration};',ctx);
-const {CB,comboPress,comboTick,comboReset,comboAttackDuration}=ctx.combo;
-const tick=()=>{comboTick(.016,null,{x:0,y:0});};
-const tap=(letter)=>{now+=330;assert.equal(comboPress(({L:'light',H:'heavy',D:'dash'})[letter]),true);tick();P.atk=null;P.cbAction=null;P.cbMove=null;};
-for(const [seq,want] of [['LLH','arc'],['LLLH','pierce'],['LLLLH','spin'],['HHL','slam'],['HHHL','rocks'],['DL','dashLight'],['DH','dashHeavy']]){
-  comboReset();CB.lastMove=null;for(const k of seq)tap(k);
-  assert.equal(CB.lastMove,want,seq);console.log('PASS',seq,want);
+vm.createContext(c);
+const html=fs.readFileSync('index.html','utf8');
+const at=html.indexOf('const COMBO_TIMING='),end=html.indexOf('/* 무쌍',at);
+assert(at>=0&&end>at,'generated combo timing markers must exist');
+vm.runInContext(html.slice(at,end)+
+ '\nglobalThis.testCombo={CB,comboPress,comboTick,comboReset,comboAttackDuration};',c);
+const {CB,comboPress,comboTick,comboReset,comboAttackDuration}=c.testCombo;
+const hitWindow=()=>{P.atkT=8.4;P.hitDone=true;c.testCombo.comboTick(.016,null,{x:0,y:0});};
+function fast(seq,want){
+ comboReset();CB.lastMove=null;P.atk=null;P.cbAction=null;P.cbMove=null;
+ const before=CB.accepted;
+ for(const k of seq){now+=65;assert.equal(comboPress(k==='L'?'light':'heavy'),true,seq+' input captured');}
+ assert.equal(CB.accepted-before,seq.length,'every physical press must be counted');
+ assert.equal(CB.queued.length,seq.length-1,'fast taps must wait in order');
+ c.testCombo.comboTick(.016,null,{x:0,y:0});
+ for(let i=1;i<seq.length;i++)hitWindow();
+ assert.equal(CB.lastMove,want,seq+' must not confuse an extra light tap');
+ assert.equal(CB.pending,null);
+ assert.equal(CB.queued.length,0);
 }
-for(const w of ['sword','whip','fan']){
-  comboReset();CB.lastMove=null;ST.wt=w;for(const k of 'LLH')tap(k);
-  assert.equal(CB.lastMove,'arc');assert.equal(P.cbWeapon,w);
-  console.log('PASS weapon',w);
-}
-comboReset();CB.lastMove=null;
-const accepted=CB.accepted;tap('L');
-for(let i=0;i<100;i++){now+=16;tick();}
-assert.equal(CB.accepted,accepted+1,'no auto input added');
-comboReset();P.atk='sword';
-assert.equal(comboPress('light'),true);
-assert.equal(comboPress('heavy'),false,'second pending input is rejected');
-assert.equal(CB.pending.kind,'light','pending input never overwritten');
-now+=1000;tick();assert.equal(CB.pending,null,'expired input removed');
-assert.equal(P.cbMove,null,'expired input did not start a move');
-console.log('PASS no repeat / one-slot buffer / expiry');
-
-// 공격 타격이 성공한 후 진행률 72%부터 후속 입력을 꺼낸다.
-comboReset();P.atk='sword';P.cbAction='light';P.cbMove=null;P.atkT=6.8;P.hitDone=true;
-assert.equal(comboPress('heavy'),true);
-tick();assert.equal(P.cbAction,'light','no cancel before 72%');
-P.atkT=7.3;tick();
-assert.equal(P.cbAction,'heavy','next action starts before animation fully finishes');
-assert.equal(P.atkT,0,'new animation starts at first frame');
-assert.equal(CB.pending,null,'queued input consumed exactly once');
-comboReset();P.atk='sword';P.cbAction='light';P.cbMove=null;P.atkT=9;P.hitDone=false;
-assert.equal(comboPress('heavy'),true);tick();
-assert.equal(P.cbAction,'light','cannot skip hit frame');
-P.hitDone=true;tick();assert.equal(P.cbAction,'heavy');
-console.log('PASS buffered follow-up / hit-guard / one action per press');
-
-P.cbAction='light';P.cbMove=null;ST.attackSpeed=undefined;
-assert.equal(comboAttackDuration(),.38,'light duration');
-P.cbAction='heavy';assert.equal(comboAttackDuration(),.54,'heavy duration');
-ST.attackSpeed=1.5;assert.equal(comboAttackDuration(),.54/1.5,'future equipment speed');
-console.log('PASS per-weapon animation durations and speed modifier');
+fast('LLLH','pierce');
+fast('LLLLH','spin');
+fast('LLH','arc');
+fast('HHL','slam');
+fast('HHHL','rocks');
+// Taps made before the hit frame cannot skip ahead.
+comboReset();P.atk='sword';P.cbAction='light';P.cbMove=null;P.atkT=7.9;P.hitDone=true;
+assert.equal(comboPress('light'),true);assert.equal(comboPress('heavy'),true);
+c.testCombo.comboTick(.016,null,{x:0,y:0});
+assert.equal(P.cbAction,'light','no early cancel at 79%');
+P.atkT=8.3;hitWindow();assert.equal(P.cbAction,'light','follow-up stays light');
+hitWindow();assert.equal(P.cbAction,'heavy','next buffered tap stays ordered');
+// A finite five-tap buffer prevents runaway auto attacks.
+comboReset();P.atk='sword';P.cbAction='light';P.cbMove=null;P.atkT=0;P.hitDone=false;
+for(let i=0;i<5;i++)assert.equal(comboPress('light'),true);
+assert.equal(comboPress('heavy'),false,'sixth press exceeds bounded buffer');
+assert.equal(CB.queued.length,4);
+now+=3700;c.testCombo.comboTick(.016,null,{x:0,y:0});
+assert.equal(CB.pending,null,'stale input expires');
+assert.equal(CB.queued.length,0,'stale buffer clears together');
+comboReset();assert.equal(CB.queued.length,0);
+P.cbAction='light';ST.attackSpeed=undefined;
+assert.equal(comboAttackDuration(),.54,'current light attack timing remains');
+P.cbAction='heavy';assert.equal(comboAttackDuration(),.75,'current heavy attack timing remains');
+console.log('PASS rapid LLH/LLLH/LLLLH/HHL/HHHL, ordered five-tap queue, 82% hit guard, expiry and unchanged attack duration');

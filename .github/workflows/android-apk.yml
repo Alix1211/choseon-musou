@@ -44,6 +44,10 @@ jobs:
           path: /tmp/choseon-range-review/
           if-no-files-found: error
           retention-days: 3
+      - name: Test rapid combo input buffering and timing
+        run: node t_combo_logic.js
+      - name: Verify two image-backed ground combo effects
+        run: node tools/check_ground_combo.cjs
       - name: Test real whip hit functions vs visual range
         run: node tools/test_whip_reach.cjs
       - name: Test all nine playable heroines and two-member party swapping

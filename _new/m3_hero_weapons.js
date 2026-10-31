@@ -20,7 +20,7 @@ const weaponHurtAllyBase=hurtAlly;
 hurtAlly=function(a,base,nx,ny,kb){const p=heroWeapon(a.type);return weaponHurtAllyBase(a,p?base*(100+stat.def())/(100+ST.def*p.def):base,nx,ny,kb);};
 const weaponDurationBase=comboAttackDuration;
 comboAttackDuration=function(){return weaponDurationBase()/(heroWeapon()?.rate||1);};
-const heroProjectiles=[],heroEffects=[];
+const heroProjectiles=[],heroEffects=[],heroGroundBursts=[];
 let heroWorld=null;
 const HERO_VFX_LAYOUT={melee:[3,4],magic:[3,4],impact:[3,4],ground:[4,3],motion:[4,3],burst:[4,3]};
 const HERO_VFX={};
@@ -41,6 +41,63 @@ loadAll=async function(){await weaponLoadBase();await Promise.all(Object.keys(HE
 function heroFx(key,x,y,size=140,a=0,ground=false,life=.32){
  if(heroEffects.length>=48)heroEffects.shift();
  heroEffects.push({key,x,y,size,a,ground,life,t:0});
+}
+/* Hand-drawn ground detail beneath the existing feathered ground.webp atlas.
+   Only HHL (slam) and HHHL (rocks) use this; no hitboxes or damage change. */
+function comboGroundBurst(move,x,y){
+ if(move!=='slam'&&move!=='rocks')return false;
+ const large=move==='rocks',cracks=[],stones=[];
+ const count=large?5:3,range=large?116:70;
+ for(let i=0;i<count;i++){
+  const angle=i*Math.PI*2/count+(Math.random()-.5)*.42,points=[[0,0]];
+  for(let step=1;step<=3;step++){
+   const a=angle+(Math.random()-.5)*.24;
+   const r=range*step/3*(.84+Math.random()*.26);
+   points.push([Math.cos(a)*r,Math.sin(a)*r*.48]);
+  }
+  cracks.push(points);
+ }
+ const num=large?11:6;
+ for(let i=0;i<num;i++){
+  const a=i*Math.PI*2/num+(Math.random()-.5)*.65,speed=(large?125:95)+Math.random()*(large?125:80);
+  stones.push({vx:Math.cos(a)*speed,vy:Math.sin(a)*speed*.42,
+   vz:170+Math.random()*(large?75:50),size:(large?4:3)+Math.random()*(large?5:4),
+   spin:(Math.random()-.5)*9,rot:Math.random()*Math.PI*2,tone:i%3});
+ }
+ if(heroGroundBursts.length>=3)heroGroundBursts.shift();
+ heroGroundBursts.push({x,y,t:0,life:large?.55:.48,cracks,stones});
+ return true;
+}
+function paintGroundCracks(b){
+ const u=b.t/b.life,alpha=Math.min(1,u/.10)*Math.min(1,(1-u)/.46);
+ if(alpha<=0)return;
+ cx.save();cx.translate(b.x,b.y);cx.globalCompositeOperation='source-over';
+ cx.globalAlpha=1;cx.lineCap='round';cx.lineJoin='round';
+ for(const pts of b.cracks){
+  cx.beginPath();for(let i=0;i<pts.length;i++)i?cx.lineTo(pts[i][0],pts[i][1]):cx.moveTo(pts[i][0],pts[i][1]);
+  cx.lineWidth=2.5;cx.strokeStyle='rgba(48,36,34,'+(.60*alpha)+')';cx.stroke();
+  cx.save();cx.translate(0,-1.5);cx.beginPath();
+  for(let i=0;i<pts.length;i++)i?cx.lineTo(pts[i][0],pts[i][1]):cx.moveTo(pts[i][0],pts[i][1]);
+  cx.lineWidth=.8;cx.strokeStyle='rgba(225,191,159,'+(.38*alpha)+')';cx.stroke();cx.restore();
+ }
+ cx.restore();
+}
+function paintGroundStones(b){
+ const t=b.t,fade=Math.min(1,t/.065)*Math.min(1,(b.life-t)/.13);
+ if(fade<=0)return;
+ const colors=['#77665b','#a18a72','#605b60'];
+ for(const s of b.stones){
+  const z=Math.max(0,s.vz*t-425*t*t),x=b.x+s.vx*t,y=b.y+s.vy*t-z;
+  cx.save();cx.translate(x,y);cx.rotate(s.rot+s.spin*t);
+  cx.globalCompositeOperation='source-over';cx.globalAlpha=.90*fade;
+  cx.fillStyle=colors[s.tone];cx.beginPath();
+  cx.moveTo(-s.size*.88,-s.size*.38);cx.lineTo(-s.size*.24,-s.size);
+  cx.lineTo(s.size*.92,-s.size*.43);cx.lineTo(s.size*.74,s.size*.62);
+  cx.lineTo(-s.size*.43,s.size*.78);cx.closePath();cx.fill();
+  cx.strokeStyle='rgba(234,208,176,.48)';cx.lineWidth=.75;cx.beginPath();
+  cx.moveTo(-s.size*.24,-s.size);cx.lineTo(s.size*.92,-s.size*.43);cx.stroke();
+  cx.restore();
+ }
 }
 function paintHeroFx(key,x,y,size,phase,a=0,ground=false,opacity=1){
  const [sheet,rowText]=key.split(':'),im=HERO_VFX[sheet];if(!im)return;
@@ -97,10 +154,20 @@ comboDamage=function(m,power,kb,a,stun){const p=heroWeapon();if(!p)return weapon
 const weaponComboStrikeBase=comboStrike;
 comboStrike=function(move,part){
  const p=heroWeapon(),a=P.cbAngle||heroAngle(P);
+ // A finishing blow can pass through multiple hit frames; fracture once.
+ if((move==='slam'||move==='rocks')&&P.cbGroundBurstToken!==CB.activated){
+  P.cbGroundBurstToken=CB.activated;comboGroundBurst(move,P.x,P.y);
+ }
  const radial=['spin','slam','rocks','dashHeavy'].includes(move);
  const key=move==='slam'||move==='dashHeavy'?'ground:0':move==='rocks'?'ground:1':move==='spin'?'motion:1':move==='pierce'||move==='dashLight'?'motion:0':'motion:2';
  heroFx(key,P.x,P.y,radial?Math.min(430,(p?.reach||170)*2):200,a,radial,.38);
- if(!p)return weaponComboStrikeBase(move,part);
+ if(!p){
+  // Choseon's legacy rocks move emits 19 plain debris sprites. The new
+  // shaped fragments replace those only, leaving hitboxes and hits intact.
+  const at=fx.length,r=weaponComboStrikeBase(move,part);
+  if(move==='rocks')for(let i=fx.length-1;i>=at;i--)if(fx[i].k==='deb')fx.splice(i,1);
+  return r;
+ }
  const power=move==='spin'?.67:move==='rocks'?2.3:move==='slam'?1.7:move==='dashHeavy'?1.05:move==='dashLight'?.65:move==='arc'?1.7:1.8;
  heroAttack(P,PLAY.active,stat.atk(),a,power,radial,radial?(move==='rocks'?1.4:1.2):1.12);
  if(move==='slam'||move==='rocks'||move==='dashHeavy')heroFx('ground:2',P.x,P.y,Math.min(400,p.reach*1.7),0,true,.4);
@@ -124,7 +191,7 @@ allyAct=function(a,dt){const p=heroWeapon(a.type);if(!p)return weaponAllyActBase
 const weaponShotsBase=updateShots;
 updateShots=function(dt){
  weaponShotsBase(dt);
- if(heroWorld!==M){heroWorld=M;heroProjectiles.length=0;heroEffects.length=0;return;}
+ if(heroWorld!==M){heroWorld=M;heroProjectiles.length=0;heroEffects.length=0;heroGroundBursts.length=0;return;}
  const targets=liveMobs();
  for(let i=heroProjectiles.length-1;i>=0;i--){
   const o=heroProjectiles[i];o.t+=dt;const oldX=o.x,oldY=o.y;o.x+=o.vx*dt;o.y+=o.vy*dt;
@@ -145,15 +212,19 @@ updateShots=function(dt){
    hitMob(m,damage,'fan',0,0);m.stun=st;heroFx('magic:1',m.x,m.y-25,50,0,true,.24);}
  }
  for(let i=heroEffects.length-1;i>=0;i--){heroEffects[i].t+=dt;if(heroEffects[i].t>=heroEffects[i].life)heroEffects.splice(i,1);}
+ for(let i=heroGroundBursts.length-1;i>=0;i--){heroGroundBursts[i].t+=dt;if(heroGroundBursts[i].t>=heroGroundBursts[i].life)heroGroundBursts.splice(i,1);}
 };
 const weaponDrawFxBase=drawFx;
 drawFx=function(){
  weaponDrawFxBase();
+ // Ground cracks stay beneath the prepainted atlas; rocks rise over it.
+ for(const b of heroGroundBursts)paintGroundCracks(b);
  for(const o of heroProjectiles){const size=o.p.kind==='orb'?34:o.p.kind==='fire'?70:52;paintHeroFx(o.p.trail,o.x,o.y,size,(o.t*5)%1,Math.atan2(o.vy,o.vx),false,.74);}
  for(const f of heroEffects){const u=f.t/f.life,alpha=Math.min(1,u/.09)*Math.pow(1-u, .75)*.85;paintHeroFx(f.key,f.x,f.y,f.size,u,f.a,f.ground,alpha);}
+ for(const b of heroGroundBursts)paintGroundStones(b);
 };
 const weaponStartBase=startStage;
-startStage=function(...args){heroProjectiles.length=0;heroEffects.length=0;const r=weaponStartBase(...args);heroWorld=M;return r;};
+startStage=function(...args){heroProjectiles.length=0;heroEffects.length=0;heroGroundBursts.length=0;const r=weaponStartBase(...args);heroWorld=M;return r;};
 
 const weaponComboMoveBase=comboMoveTick;
 comboMoveTick=function(dt,prev,frame,total){return weaponComboMoveBase(dt*(heroWeapon()?.rate||1),prev,frame,total);};
