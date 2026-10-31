@@ -14,6 +14,13 @@ assert(!/comboBolt\(/.test(html),'No long-range whip bolts in combat');
 assert(html.includes('REACH={sword:146,whip:170,fan:600}'),'Keep whip broader than sword');
 assert(html.includes("hitMob(m,base*.85,'whip'"),'Whip should stay lower power');
 assert(html.includes('무쌍난무')&&html.includes("CM_AUDIO.playVoice('skill_'+w"),'Existing move names and voice hooks must remain');
+assert(html.includes("Math.random()>=.25"),'Skill and battle voice frequency should be 25%');
+assert(html.includes('mobile-live/a/voice/'),'Old APK must fetch missing voice from live assets');
+const voiceCounts={skills:28,battle:8,stage:44,map:21,event:6};
+for(const [folder,expected] of Object.entries(voiceCounts)){
+  const actual=fs.readdirSync('a/voice/'+folder).filter(name=>name.endsWith('.mp3')).length;
+  assert.equal(actual,expected,'Voice pack incomplete in '+folder);
+}
 assert(html.includes('async function loadStage40Image(path)'), 'Keep Stage 40 art fallback for old APKs');
 assert(!html.includes("jobs.push(loadImg('a/stage40/"), 'Stage 40 art must not block game boot and Drive sync');
 assert(main.includes('https://raw.githubusercontent.com/Alix1211/choseon-musou/mobile-live/index.html'));

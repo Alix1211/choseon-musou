@@ -84,10 +84,27 @@ const CM_AUDIO=(()=>{
     const folder=id.startsWith('skill_')?'skills':id.startsWith('battle_')?'battle':id.startsWith('stage_')?'stage':id.startsWith('map_')?'map':'event';
     return voiceRoot+folder+'/'+id+'.mp3';
   }
+  // Old APKs have live HTML but may be missing the bundled 107 voice files.
+  // Fetch locally first, then from live assets; audio remains optional at boot.
+  async function loadVoice(id,url){
+    const remote='https://raw.githubusercontent.com/Alix1211/choseon-musou/mobile-live/a/voice/'+url.slice(voiceRoot.length);
+    for(const source of [url,remote]){
+      const controller=new AbortController();
+      const timer=setTimeout(()=>controller.abort(),source===url?4000:9000);
+      try{
+        const response=await fetch(source,{signal:controller.signal});
+        if(!response.ok)continue;
+        return await ctx.decodeAudioData(await response.arrayBuffer());
+      }catch(e){}finally{clearTimeout(timer);}
+    }
+    return null;
+  }
   function playVoice(id,priority=1){
     if(!unlocked||!settings.voice||document.hidden||!ctx||ctx.state!=='running')return false;
     if(UI.settingsOpen||(UI.paused&&UI.mode!=='dlg'))return false;
     const url=voiceFile(id);if(!url)return false;
+    // Speak only one in four eligible skill/combat triggers, never throttle dialogue.
+    if((priority===1||priority===2)&&Math.random()>=.25)return false;
     const now=performance.now(),busy=voicePending||!!voiceActive||now<voiceDeadline;
     // Skill voice is the very last priority: skip it whenever any other
     // dialogue, combat bark or skill is playing/being loaded. No catch-up.
@@ -122,11 +139,14 @@ const CM_AUDIO=(()=>{
     }
     if(voiceCache[id])start(voiceCache[id]);
     else{
-      const load=voiceLoading[id]||(voiceLoading[id]=fetch(url)
-        .then(r=>{if(!r.ok)throw Error('Missing voice '+id);return r.arrayBuffer();})
-        .then(b=>ctx.decodeAudioData(b)).then(b=>voiceCache[id]=b)
-        .catch(()=>null));
-      load.then(start,clearPending);
+      const load=voiceLoading[id]||(voiceLoading[id]=loadVoice(id,url).then(b=>{
+        if(b)voiceCache[id]=b;
+        return b;
+      }));
+      load.then(start,clearPending).finally(()=>{
+        // An offline miss must not prevent retrying after connectivity returns.
+        if(voiceLoading[id]===load)delete voiceLoading[id];
+      });
     }
     return true;
   }
