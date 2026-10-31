@@ -1100,17 +1100,8 @@ function updateMob(m,dt){
     chaseMove(m,{x:target.x-ty/dist*offset,y:target.y+tx/dist*offset},speed*dt,dt);m.moving=true;
   }
 }
-function drawEnemyIntents(){
-  for(const m of mobs){
-    if(!m.intent||m.dead||m.down||m.wuHidden||m.col?.weiHidden)continue;
-    if(Math.abs(m.x-cam.x)>VW/Z*.6+450||Math.abs(m.y-cam.y)>VH/Z*.6+450)continue;
-    const a=m.intent,z=enemyArea(m,a),u=1-a.left/a.duration;
-    cx.save();cx.translate(z.x,z.y);cx.scale(1,YR);cx.rotate(z.a);cx.beginPath();
-    if(z.k==='rect')cx.rect(0,-z.w/2,z.L,z.w);
-    else{cx.moveTo(0,0);cx.arc(0,0,z.R,-z.ha,z.ha);cx.closePath();}
-    cx.fillStyle='rgba(255,65,45,'+(.10+.14*u)+')';cx.strokeStyle=enemyArmored(m)?'#ffce75':'rgba(255,120,95,.85)';cx.lineWidth=enemyArmored(m)?3:2;cx.fill();cx.stroke();cx.restore();
-  }
-}
+// Enemy attack previews are intentionally hidden; intent timing and damage remain active.
+function drawEnemyIntents(){}
 
 /* ───────── 보스 : 경고 장판 + 패턴 ───────── */
 const YR=.78;   // 바닥 원을 납작하게 그리는 비율 (판정도 같은 비율)
@@ -3776,29 +3767,7 @@ function drawMob(m){
     cx.fillStyle=m.elite?'#ffb347':'#e8456b';cx.fillRect(x,y,w*Math.max(0,m.hp/m.maxHp),4);
   }
 }
-function drawZones(){
-  drawEnemyIntents();
-  for(const z of zones){
-    const u=Math.min(1,z.t/z.life),pul=.5+.5*Math.sin(time*22);
-    cx.save();cx.translate(z.x,z.y);
-    if(z.k==='rect'){
-      cx.rotate(z.a);
-      cx.fillStyle='rgba(255,40,50,'+(.14+.08*pul)+')';cx.fillRect(0,-z.w/2,z.L,z.w);
-      cx.fillStyle='rgba(255,70,60,'+(.18+.22*u)+')';cx.fillRect(0,-z.w/2,z.L*u,z.w);
-      cx.lineWidth=3;cx.strokeStyle='rgba(255,110,90,'+(.55+.35*pul)+')';cx.strokeRect(0,-z.w/2,z.L,z.w);
-    }else{
-      cx.scale(1,YR);
-      cx.beginPath();
-      if(z.k==='circle')cx.arc(0,0,z.r,0,7);else{cx.moveTo(0,0);cx.arc(0,0,z.R,z.a-z.ha,z.a+z.ha);cx.closePath();}
-      cx.fillStyle='rgba(255,40,50,'+(.14+.08*pul)+')';cx.fill();
-      cx.lineWidth=3;cx.strokeStyle='rgba(255,110,90,'+(.55+.35*pul)+')';cx.stroke();
-      cx.beginPath();
-      if(z.k==='circle')cx.arc(0,0,z.r*u,0,7);else{cx.moveTo(0,0);cx.arc(0,0,z.R*u,z.a-z.ha,z.a+z.ha);cx.closePath();}
-      cx.fillStyle='rgba(255,70,60,'+(.18+.22*u)+')';cx.fill();
-    }
-    cx.restore();
-  }
-}
+function drawZones(){}
 function drawWards(){
   for(const w of wards){
     const a=Math.min(1,w.t*4)*Math.min(1,(w.dur-w.t)*2);

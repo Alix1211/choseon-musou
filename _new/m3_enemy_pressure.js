@@ -147,14 +147,5 @@ function updateMob(m,dt){
     chaseMove(m,{x:target.x-ty/dist*offset,y:target.y+tx/dist*offset},speed*dt,dt);m.moving=true;
   }
 }
-function drawEnemyIntents(){
-  for(const m of mobs){
-    if(!m.intent||m.dead||m.down||m.wuHidden||m.col?.weiHidden)continue;
-    if(Math.abs(m.x-cam.x)>VW/Z*.6+450||Math.abs(m.y-cam.y)>VH/Z*.6+450)continue;
-    const a=m.intent,z=enemyArea(m,a),u=1-a.left/a.duration;
-    cx.save();cx.translate(z.x,z.y);cx.scale(1,YR);cx.rotate(z.a);cx.beginPath();
-    if(z.k==='rect')cx.rect(0,-z.w/2,z.L,z.w);
-    else{cx.moveTo(0,0);cx.arc(0,0,z.R,-z.ha,z.ha);cx.closePath();}
-    cx.fillStyle='rgba(255,65,45,'+(.10+.14*u)+')';cx.strokeStyle=enemyArmored(m)?'#ffce75':'rgba(255,120,95,.85)';cx.lineWidth=enemyArmored(m)?3:2;cx.fill();cx.stroke();cx.restore();
-  }
-}
+// Enemy attack previews are intentionally hidden; intent timing and damage remain active.
+function drawEnemyIntents(){}
