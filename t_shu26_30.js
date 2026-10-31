@@ -18,8 +18,8 @@ const context={WEI_RULES:{},mobs:[],P:{x:0,y:0,slowT:0},M:null,YR:.78,TS:48,CH:1
 vm.createContext(context);
 vm.runInContext(source+'\nthis.NPC_STAGE_BOSSES=NPC_STAGE_BOSSES;this.npcStageInit=npcStageInit;this.npcStageHeroesAppear=npcStageHeroesAppear;',context);
 assert.match(index,/25:'shu25',26:'shu26',27:'shu27',28:'shu28',29:'shu29',30:'shu30'/);
-assert.match(index,/npcBossType:n<=30&&d\?d.type:null/);
-assert.match(index,/if\(!m\.sp\.last\|\|m\.n<1\|\|m\.n>30\)return;/);
+assert.match(index,/npcBossType:n<=39&&d\?d.type:null/);
+assert.match(index,/if\(!m\.sp\.last\|\|m\.n<1\|\|m\.n>39\)return;/);
 for(let n=26;n<=30;n++){
   const d=context.NPC_STAGE_BOSSES[n],main=n===30;
   assert.ok(d&&d.name&&d.skills.length>=2,'NPC 데이터 '+n);
