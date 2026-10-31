@@ -4,7 +4,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const source=fs.readFileSync('_new/m3_playable.js','utf8');
 const ids=['zhenji','wenji','wangyi','xiaoqiao','daqiao','shangxiang','yinping','xingcai','yueying'];
-const customAttack=['zhenji','wenji','wangyi','daqiao','shangxiang','yinping','yueying'];
+const customAttack=ids;
 const family={zhenji:'fan',wenji:'fan',wangyi:'sword',xiaoqiao:'fan',daqiao:'fan',shangxiang:'whip',yinping:'sword',xingcai:'sword',yueying:'sword'};
 const hp={zhenji:[.9,1.1,1],wenji:[.8,1.2,1],wangyi:[1,1.15,1.05],xiaoqiao:[.8,1,1.25],daqiao:[1.25,.85,.95],shangxiang:[1,1.1,1.15],yinping:[1.1,1.2,1],xingcai:[1.2,1,.95],yueying:[.95,1.15,1.1]};
 function app(){

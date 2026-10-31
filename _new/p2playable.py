@@ -1,7 +1,7 @@
 # Common player control for the 9 approved existing female heroes.
 # The seven recovered attack atlases change only visuals, not hit timing/gear.
 rep("A.sheets={};A.walk={};\n  const jobs=[];",
-    "A.sheets={};A.walk={};A.heroAttack={};\n  const jobs=[];\n  for(const id in HERO_ATTACK)jobs.push(loadImg(HERO_ATTACK[id]).then(im=>A.heroAttack[id]=im));\n  ")
+    "A.sheets={};A.walk={};A.heroAttack={};\n  const jobs=[];\n  for(const id in HERO_ATTACK)jobs.push(loadHeroAttack(id).then(im=>{if(im)A.heroAttack[id]=im;}));\n  ")
 rep('<!-- CHOSEON_LIVE_UPDATE: 2026-10-30-baseT-sync-v1 -->','<!-- CHOSEON_LIVE_UPDATE: 2026-10-30-baseT-sync-v1 -->\n<!-- CHOSEON_GAME_REVISION: 20261031-hero-attack-v1 -->')
 rep('<div id="tl">','<div id="tl"><button id="playerPortrait" title="초선 · 장비" aria-label="초선 · 장비"><img src="a/ui/pt/choseon.webp" alt=""><i></i></button>')
 rep('<button id="sk1" class="skb" disabled></button>', '<button id="allySwap" hidden disabled aria-label="동료 교체"><img src="a/ui/pt/zhenji.webp" alt=""><i></i></button>\n<button id="sk1" class="skb" disabled></button>')

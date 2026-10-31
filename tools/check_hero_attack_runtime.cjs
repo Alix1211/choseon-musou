@@ -1,7 +1,7 @@
 'use strict';
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
-const ids=['zhenji','wenji','wangyi','daqiao','shangxiang','yinping','yueying'];
+const ids=['zhenji','wenji','wangyi','daqiao','shangxiang','yinping','yueying','xiaoqiao','xingcai'];
 (async()=>{
   const browser=await chromium.launch({headless:true});
   try{
@@ -38,6 +38,6 @@ const ids=['zhenji','wenji','wangyi','daqiao','shangxiang','yinping','yueying'];
     },ids);
     assert.equal(results.length,ids.length*4);
     assert.deepEqual(errors,[]);
-    console.log('PASS seven loaded character-specific attacks, side/front/back/left; '+results.length+' live Canvas draws');
+    console.log('PASS nine loaded character-specific attacks, side/front/back/left; '+results.length+' live Canvas draws');
   }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1)});
