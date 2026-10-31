@@ -1,6 +1,5 @@
 /* All 9 existing female generals share the approved playable controller.
-   Seven use their own approved 3-direction attacks; Xiaoqiao and Xingcai
-   keep the previously approved animation. Combat timing stays untouched. */
+   All nine use their own approved 3-direction attack animations. Combat timing stays untouched. */
 const PLAY={active:'choseon',bagPause:false,bagWasPaused:false};
 /* Combat families are fixed by the existing character models; equipment
    inventory, upgrades, buffs and item attack values remain shared via ST. */
@@ -20,8 +19,31 @@ const HERO_ATTACK=Object.freeze({
   zhenji:'a/hero_attack/zhenji.webp',wenji:'a/hero_attack/wenji.webp',
   wangyi:'a/hero_attack/wangyi.webp',daqiao:'a/hero_attack/daqiao.webp',
   shangxiang:'a/hero_attack/shangxiang.webp',yinping:'a/hero_attack/yinping.webp',
-  yueying:'a/hero_attack/yueying.webp'
+  yueying:'a/hero_attack/yueying.webp',
+  xiaoqiao:'a/hero_attack/xiaoqiao.webp',xingcai:'a/hero_attack/xingcai.webp'
 });
+async function loadHeroAttack(id){
+  const path=HERO_ATTACK[id];
+  try{return await loadImg(path);}catch(localMissing){}
+  // Older APKs have no attack atlases. Fetch the exact approved asset and
+  // retain it independently of the HTML update for subsequent offline runs.
+  const url='https://raw.githubusercontent.com/Alix1211/choseon-musou/3eff0c691711ef03470992bbd1bdb5ac6c14701f/'+path;
+  let cache=null,response=null;
+  try{cache=await caches.open('choseon-hero-attacks-v1');response=await cache.match(url);}catch(cacheUnavailable){}
+  try{
+    if(!response){
+      const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),20000);
+      try{response=await fetch(url,{signal:abort.signal});}finally{clearTimeout(timer);}
+      if(!response.ok)throw Error('attack atlas HTTP '+response.status);
+      if(cache)try{await cache.put(url,response.clone());}catch(cacheFull){}
+    }
+    const objectURL=URL.createObjectURL(await response.blob());
+    try{return await loadImg(objectURL);}finally{URL.revokeObjectURL(objectURL);}
+  }catch(error){
+    console.warn('Attack atlas unavailable: '+id,error);
+    return null;
+  }
+}
 function drawHeroAttack(id,x,y,face,progress,scale,alpha=1){
   const im=A.heroAttack&&A.heroAttack[id],wk=WALK[id],mt=MT[id];
   if(!im||!wk||!mt)return false;
