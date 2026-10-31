@@ -13,7 +13,7 @@ const c={
  manualAim:()=>({m:{x:200,y:100},d:100}),
  startAttack:(w)=>{P.atk=w;P.atkT=0;P.hitDone=false;},
  moveEnt:()=>{},rnd:(a,b)=>(a+b)/2,liveMobs:()=>[],
- stat:{atk:()=>100},hitMob:()=>{},CM_AUDIO:{playVoice(){}},console
+ stat:{atk:()=>100},hitMob:()=>{},CM_AUDIO:{playVoice(){},haptic(){}},console
 };
 vm.createContext(c);
 const html=fs.readFileSync('index.html','utf8');
