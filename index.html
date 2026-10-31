@@ -1058,6 +1058,7 @@ function enemyBossPressure(m,dt,d){
   m.pressureCd=m.hp<m.maxHp*.5?3.2:4.1;
 }
 function updateMob(m,dt){
+  if(m.npcBoss&&npcBossTick(m,dt))return;
   if(m.wuHidden||weiMob(m,dt))return;
   if(m.dead){m.intent=null;m.charge=null;m.deadT+=dt;return;}
   m.hurt=Math.max(0,m.hurt-dt);m.stun=Math.max(0,m.stun-dt);m.lunge=Math.max(0,m.lunge-dt*3);
@@ -1266,6 +1267,7 @@ function dmgNum(base){
   return [v,crit];
 }
 function hitMob(m,base,w,kb,ang,tag){
+  if(m.npcBoss&&m.npcShield>0){npcShieldHit(m);return;}
   if(m.wuHidden||!wuCanHit(m))return;
   if(m.col&&m.col.weiHidden)return;
   if(m.dead||m.down)return;
@@ -2369,7 +2371,7 @@ function mkCol(tx,ty,o){
   o=o||{};const m=M,cx_=tx*TS,cy_=ty*TS,set=o.set,yk=set==='y';
   const col={idx:m.colonies.length,room:{x:Math.floor(tx)-3,y:Math.floor(ty)-3,w:6,h:6,cx:Math.floor(tx),cy:Math.floor(ty)},cx:cx_,cy:cy_,mobs:[],woken:false,cleared:false,boss:false,hold:!!o.hold,tag:o.tag||''};
   if(o.leader){
-    const lt=yk?pickWeighted([['jiangshi',1],['fox',1],['egg',1]]):pickWeighted([['spear',1],['cav',1]]);
+    const lt=o.npcBossType||(yk?pickWeighted([['jiangshi',1],['fox',1],['egg',1]]):pickWeighted([['spear',1],['cav',1]]));
     const L=createMob(lt,set,cx_,cy_,col,true);
     L.leader=true;col.lead=L;
     L.aur=o.captain?330:250;L.auk=o.captain?.4:.28;
@@ -2402,6 +2404,168 @@ const SETS=['0','1','2'];
 /* 스테이지가 곧 나라 : 1~10 위 · 11~20 오 · 21~30 촉 / 31 이후는 세 나라가 섞인다 */
 function stageSet(n){return n<=10?'0':n<=20?'2':n<=30?'1':null;}
 const parOf=n=>Math.round((n<=12?620:n===40?940:900)*.9);
+/* NPC 반란군 1~20판: 기존 나라별 보행/기마 원본을 재사용하는 최종 수문장.
+ * 기존 판별 기믹은 그대로 두고, 이 NPC를 이긴 뒤에만 장수가 등장한다. */
+const NPC_STAGE_BOSSES={
+  1:{name:'NPC 하비문지기',type:'spear',color:[245,88,65],skills:['quake']},
+  2:{name:'NPC 망루감독관',type:'bow',color:[111,189,255],skills:['burst']},
+  3:{name:'NPC 독연관리관',type:'bow',color:[175,101,235],skills:['poison']},
+  4:{name:'NPC 군량집행관',type:'spear',color:[243,86,67],skills:['quake']},
+  5:{name:'NPC3',type:'cav',color:[249,78,71],main:true,skills:['quake','charge']},
+  6:{name:'NPC 포획감찰관',type:'spear',color:[172,100,237],skills:['bind']},
+  7:{name:'NPC 설원매복장',type:'bow',color:[124,195,255],skills:['ice']},
+  8:{name:'NPC 암문파수장',type:'spear',color:[128,195,252],skills:['shield']},
+  9:{name:'NPC 허창성문장',type:'spear',color:[252,103,78],skills:['quake']},
+  10:{name:'NPC8',type:'cav',color:[114,185,255],main:true,skills:['shield','ice']},
+  11:{name:'NPC 화선감독관',type:'bow',color:[252,117,56],skills:['fire']},
+  12:{name:'NPC 합비결투장',type:'spear',color:[131,199,255],skills:['vortex']},
+  13:{name:'NPC 밀실감시관',type:'bow',color:[179,112,240],skills:['poison']},
+  14:{name:'NPC 야습기장',type:'spear',color:[114,192,253],skills:['charge']},
+  15:{name:'NPC12',type:'cav',color:[179,88,231],main:true,skills:['poison','vortex']},
+  16:{name:'NPC 기관수비장',type:'spear',color:[112,178,245],skills:['shield']},
+  17:{name:'NPC 철쇄선단장',type:'bow',color:[250,100,60],skills:['fire']},
+  18:{name:'NPC 금망포획관',type:'spear',color:[181,107,239],skills:['bind']},
+  19:{name:'NPC 건업감찰장',type:'bow',color:[111,193,252],skills:['burst']},
+  20:{name:'NPC17',type:'cav',color:[64,214,206],main:true,skills:['vortex','burst']}
+};
+
+function npcStageInit(m){
+  if(!m.sp.last||m.n<1||m.n>20)return;
+  const d=NPC_STAGE_BOSSES[m.n],b=m.captain;
+  if(!d||!b)throw new Error('NPC 보스 배치 실패: '+m.n+'판');
+  b.npcBoss=true;b.npcBossDef=d;b.npcShield=0;b.npcShieldUses=0;b.npcSkillCd=3.1;
+  b.npcSkillIx=0;b.npcCast=null;b.npcBlockPop=0;
+  // createMob의 elite 3.4배와 mkCol의 captain 2.4배가 이미 적용된 상태.
+  // 목표 수치는 이 곱셈을 먼저 되돌린 '같은 병과 일반병' 대비 배수다.
+  b.hp=b.maxHp=b.hp/(3.4*2.4)*(d.main?8:5);
+  b.atk=b.atk/1.5*2;
+  b.scale=b.scale/1.18*1.2;
+  m.npcBoss=b;m.npcBossCleared=false;m.npcWhirls=[];
+  // 참조는 m.heroes에 유지하되 실제 전투/그림 목록에는 보스 격파 전까지 넣지 않는다.
+  for(const h of m.heroes){const i=mobs.indexOf(h);if(i>=0)mobs.splice(i,1);h.npcWaiting=true;}
+}
+function npcStageBossDefeated(b){
+  if(!M||!b.npcBoss||M.npcBossCleared)return;
+  M.npcBossCleared=true;M.npcWhirls.length=0;
+  bossBurst(b);
+  showBanner(b.npcBossDef.name+' 격파',2.3);
+}
+function npcStageHeroesAppear(){
+  if(!M||!M.npcBossCleared||M.npcHeroesShown)return;
+  M.npcHeroesShown=true;
+  for(const h of M.heroes){if(!h.npcWaiting)continue;h.npcWaiting=false;if(!mobs.includes(h))mobs.push(h);}
+  if(M.heroes.length)showBanner('내성 장수 등장',2.1);
+}
+function npcShieldHit(m){
+  if(time-(m.npcBlockPop||0)>.45){m.npcBlockPop=time;pops.push({x:m.x,y:m.y-mobH(m)*m.scale*.7,t:0,txt:'보호막!',col:'#b7eaff',size:16,vy:-25});}
+}
+function npcBossTick(m,dt){
+  if(m.dead||m.down||!m.col.woken||!['manual','hunt'].includes(P.mode))return false;
+  m.npcShield=Math.max(0,(m.npcShield||0)-dt);
+  if(m.npcCast){
+    m.hurt=Math.max(0,m.hurt-dt);m.stun=Math.max(0,m.stun-dt);
+    m.npcCast.left-=dt;m.wind=Math.max(0,m.npcCast.left);m.moving=false;
+    if(m.npcCast.left<=0){const k=m.npcCast.k;m.npcCast=null;npcBossUse(m,k);m.npcSkillCd=m.npcBossDef.main?6.6:9.3;m.cd=Math.max(m.cd,.8);}
+    return true;
+  }
+  if(m.npcShield>0){m.hurt=Math.max(0,m.hurt-dt);m.stun=Math.max(0,m.stun-dt);m.moving=false;m.wind=0;return true;}
+  m.npcSkillCd-=dt;
+  const dist=Math.hypot(P.x-m.x,P.y-m.y);
+  if(m.npcSkillCd<=0&&dist<610&&hasLOS(m.x,m.y,P.x,P.y)){
+    const skills=m.npcBossDef.skills;
+    let k=skills[m.npcSkillIx++%skills.length];
+    if(k==='shield'&&m.npcShieldUses>=(m.npcBossDef.main?2:1)){k=skills.find(v=>v!=='shield')||'burst';}
+    m.intent=null;m.charge=null;
+    m.npcCast={k,left:k==='quake'?.68:.56};m.wind=m.npcCast.left;
+    m.face=faceTo(P.x-m.x,P.y-m.y);
+    m.hurt=Math.max(0,m.hurt-dt);m.stun=Math.max(0,m.stun-dt);
+    return true;
+  }
+  // 다른 적의 공격 주기는 변경하지 않고, NPC 보스만 행동을 조금 더 자주 한다.
+  if(m.cd>0)m.cd=Math.max(0,m.cd-dt*.2);
+  return false;
+}
+function npcBossUse(m,k){
+  if(!M||m.dead)return;
+  const d=m.npcBossDef,dx=P.x-m.x,dy=(P.y-m.y)/YR,a=Math.atan2(dy,dx),col=d.color;
+  if(k==='shield'){
+    m.npcShield=1.4;m.npcShieldUses++;
+    fx.push({k:'shock',x:m.x,y:m.y-48,R:100,t:0,life:.38,small:true});
+  }else if(k==='quake'){
+    addZone({k:'circle',x:m.x,y:m.y,r:d.main?210:155,life:.12,dmg:m.atk*1.05,kb:190,fx:'slam',pressureOwner:m});
+  }else if(k==='vortex'){
+    if(M.npcWhirls.length)M.npcWhirls.length=0;
+    M.npcWhirls.push({x:m.x+Math.cos(a)*95,y:m.y+Math.sin(a)*YR*95,t:0,life:2.8,r:d.main?94:72,color:col,damage:m.atk*.52,nextHit:new Map(),owner:m});
+  }else if(k==='charge'){
+    m.charge={a,left:d.main?390:250,hit:new Set(),speed:d.main?670:560};
+  }else{
+    const count=k==='bind'?1:k==='burst'||k==='ice'||k==='poison'||k==='fire'?3:2;
+    const sy=m.y-50*m.scale,sx=m.x;
+    const aim=Math.atan2(P.y-CH*.97-sy,P.x-sx);
+    for(let i=0;i<count;i++){
+      const angle=aim+(i-(count-1)/2)*.20,sp=k==='bind'?300:370;
+      shots.push({x:sx,y:sy,vx:Math.cos(angle)*sp,vy:Math.sin(angle)*sp,
+        dmg:m.atk*(count>1?.58:.88),kind:'magic',npcColor:col,slow:k==='bind'||k==='ice',
+        t:0,r:k==='bind'?18:15,life:2.5});
+    }
+  }
+}
+function npcBossFieldTick(dt){
+  if(!M||!M.npcWhirls)return;
+  for(let i=M.npcWhirls.length-1;i>=0;i--){
+    const q=M.npcWhirls[i];q.t+=dt;
+    if(q.t>q.life||q.owner.dead){M.npcWhirls.splice(i,1);continue;}
+    const dx=P.x-q.x,dy=P.y-q.y,d=Math.hypot(dx,dy)||1;
+    if(d>24){const step=Math.min(d,55*dt);q.x+=dx/d*step;q.y+=dy/d*step;}
+    for(const t of [P,...allies]){
+      if(t===P?!['manual','hunt'].includes(P.mode):t.down||t.dead)continue;
+      if(Math.hypot(t.x-q.x,(t.y-q.y)/YR)>q.r)continue;
+      if(q.t<(q.nextHit.get(t)||0))continue;
+      q.nextHit.set(t,q.t+1.0);
+      const tx=t.x-q.x,ty=t.y-q.y,L=Math.hypot(tx,ty)||1;
+      if(!hasLOS(q.x,q.y,t.x,t.y))continue;
+      if(t===P)hurtPlayer(q.damage,tx/L,ty/L,60);
+      else hurtAlly(t,q.damage,tx/L,ty/L,60);
+    }
+  }
+  if(M.npcBossCleared&&M.sp.last&&M.mis==='guard'&&M.captain&&M.captain.dead)onCaptainDead(M.captain);
+}
+function npcBossDrawField(){
+  if(!M||!M.npcWhirls)return;
+  for(const q of M.npcWhirls){
+    const c=q.color.join(','),u=Math.min(1,q.t*3,(q.life-q.t)*2),spin=time*3.6;
+    cx.save();cx.translate(q.x,q.y-37);cx.scale(1,YR);cx.globalCompositeOperation='lighter';
+    for(let i=0;i<4;i++){
+      const a=spin+i*Math.PI/2;cx.strokeStyle='rgba('+c+','+(.16*u)+')';cx.lineWidth=8+i*2;cx.beginPath();cx.ellipse(0,-i*13,q.r*(.64-i*.08),q.r*(.32-i*.04),a,0,Math.PI*1.65);cx.stroke();
+    }
+    cx.restore();
+  }
+}
+function npcBossDrawAura(m){
+  if(m.dead||m.npcWaiting)return;
+  const c=m.npcBossDef.color.join(','),h=mobH(m)*m.scale;
+  const flick=.5+.5*Math.sin(time*5+m.seed),extra=m.npcCast?.18:m.npcShield?.12:0;
+  cx.save();cx.globalCompositeOperation='lighter';
+  const g=cx.createRadialGradient(m.x,m.y-h*.4,8,m.x,m.y-h*.38,h*.83);
+  g.addColorStop(0,'rgba('+c+','+(.10+.06*flick+extra)+')');
+  g.addColorStop(.56,'rgba('+c+','+(.085+.035*flick+extra*.5)+')');
+  g.addColorStop(1,'rgba('+c+',0)');
+  cx.fillStyle=g;cx.beginPath();cx.ellipse(m.x,m.y-h*.4,h*.7,h*.82,0,0,7);cx.fill();
+  if(m.npcShield>0){
+    cx.strokeStyle='rgba(165,230,255,'+(.35+.11*flick)+')';cx.lineWidth=3;
+    cx.beginPath();cx.ellipse(m.x,m.y-h*.48,h*.55,h*.63,0,0,7);cx.stroke();
+  }
+  cx.restore();
+}
+function npcBossDrawLabel(m){
+  const y=m.y-mobH(m)*m.scale-29,w=118,hp=Math.max(0,m.hp/m.maxHp);
+  cx.save();cx.textAlign='center';cx.font='800 15px system-ui,sans-serif';cx.lineWidth=4;cx.lineJoin='round';
+  cx.strokeStyle='#140d18';cx.fillStyle='#fff1bc';cx.strokeText(m.npcBossDef.name,m.x,y-13);cx.fillText(m.npcBossDef.name,m.x,y-13);
+  cx.fillStyle='rgba(4,4,13,.78)';cx.fillRect(m.x-w/2-2,y-6,w+4,11);
+  cx.fillStyle=m.npcBossDef.main?'#f5a34e':'#e75d85';cx.fillRect(m.x-w/2,y-4,w*hp,7);
+  cx.restore();
+}
+
 function buildMusou(cfg){
   cfg=cfg||{hero:[],kind:'other'};
   const n=cfg.n||1,specs=kanSpecs(n);
@@ -2460,7 +2624,7 @@ function buildKan(run,idx,carry){
       if(r.keep)continue;
       if(r===opener){const c0=mkCol(w[0]+.5,w[1]+.5,{n:9,leader:true,commander:true,set:set});m.beacon=c0.lead;continue;}
       if(r===L.exitRoom){
-        if(sp.last){const c0=mkCol(w[0]+.5,w[1]+.5,{n:7,leader:true,captain:true,set:setFor()});m.captain=c0.lead;}
+        if(sp.last){const d=NPC_STAGE_BOSSES[n];const c0=mkCol(w[0]+.5,w[1]+.5,{n:7,leader:true,captain:true,set:setFor(),npcBossType:n<=20&&d?d.type:null});m.captain=c0.lead;}
         else if(gim==='commander'&&opener){mkCol(w[0]+.5,w[1]+.5,{n:cn(),leader:true,set:setFor()});}
         else{const c0=mkCol(w[0]+.5,w[1]+.5,{n:cn()-1,leader:true,guard:true,set:setFor()});m.guard=c0.lead;}
         continue;
@@ -2497,6 +2661,7 @@ function buildKan(run,idx,carry){
     if(!carry)S.party.slice(0,2).forEach(id=>{if(S.roster.includes(id)&&MT[id])addAlly(id,P.x+rnd(-50,50),P.y+60);});
     else for(const a of allies){a.x=P.x+rnd(-60,60);a.y=P.y+rnd(30,70);a.kx=a.ky=0;a.act=null;a.wind=0;a.hx=a.x;a.hy=a.y;if(!a.gone)a.down=false;}
     gimInit(m);
+    npcStageInit(m);
     warmGround(m,P.x,P.y);
     kanIntro(m,run,sp,idx);
   }finally{Math.random=oldRand;}
@@ -2537,7 +2702,7 @@ function misText(){
   const nm=M.heroes.length?heroNames():'',e=M.exit;
   const t={
     cmd:(M.openHour||11)+'시 방향 NPC 거점병장을 쓰러뜨려라',
-    guard:M.sp.last?'적 부장을 쓰러뜨려라':'수문장을 쓰러뜨려라',
+    guard:M.sp.last?(M.npcBoss?M.npcBoss.npcBossDef.name:'적 부장')+'를 쓰러뜨려라':'수문장을 쓰러뜨려라',
     exit:e?'열린 '+EXG[e.art]+' 나아가라':'',
     inner:'내성문이 열렸다. 안으로 들어가라',
     hero:'내성의 적장을 제압하라 ('+nm+')',
@@ -2587,8 +2752,10 @@ function onGuardDead(m){
   bossBurst(m);if(M.mis==='guard'&&!M.sp.last){M.mis='exit';openExit();}
 }
 function onCaptainDead(m){
+  if(m.npcBoss)npcStageBossDefeated(m);
   if(M.mis==='guard'&&M.sp.last){
     openGate('inner');M.mis='inner';
+    if(m.npcBoss)npcStageHeroesAppear();
     for(const c of M.colonies)if(c.tag==='castle')c.hold=false;
   }
 }
@@ -2602,7 +2769,7 @@ function heroDown(h){
   if(M.cfgKind==='capture')queueDlg('mid',1.3);
 }
 function rescueTarget(){
-  if(!M||!M.heroes||!P||P.mode!=='manual')return null;
+  if(!M||!M.heroes||!P||P.mode!=='manual'||(M.npcBoss&&!M.npcBossCleared))return null;
   let b=null,bd=150;
   for(const h of M.heroes){if(!h.down||h.dead)continue;const d=Math.hypot(h.x-P.x,h.y-P.y);if(d<=bd){bd=d;b=h;}}
   return b;
@@ -3000,6 +3167,7 @@ function drawGimmicksLegacy(){
 }
 
 function missionTick(dt){
+  npcBossFieldTick(dt);
   if(gimTick(dt))return;
   const m=M;
   if(m.exit&&m.exit.open){
@@ -3111,6 +3279,7 @@ function ventHit(v,dmg){
   }
 }
 function drawVents(){
+  npcBossDrawField();
   drawGimmicks();
   if(!M.vents||!M.vents.length)return;
   const vw=VW/Z,vh=VH/Z,x0=cam.x-vw/2-140,x1=cam.x+vw/2+140,y0=cam.y-vh/2-160,y1=cam.y+vh/2+180;
@@ -3717,6 +3886,7 @@ function drawStill(m,bx,by,sx,sy,alpha){
   cx.restore();cx.globalAlpha=1;
 }
 function drawMob(m){
+  if(m.npcBoss&&!m.wuHidden&&!(m.col&&m.col.weiHidden))npcBossDrawAura(m);
   if(m.type==='choseon'){drawBenchedChoseon(m);return;}
   if(m.wuHidden)return;
   if(m.col&&m.col.weiHidden)return;
@@ -3760,7 +3930,8 @@ function drawMob(m){
   if(m.hero&&m.down)drawRescueMark(m);
   if(m.ally&&!m.dead)drawAllyTag(m);
   if(m.commander&&!m.dead){cx.font='800 15px system-ui,sans-serif';cx.textAlign='center';cx.lineJoin='round';cx.lineWidth=4;cx.strokeStyle='rgba(20,8,30,.9)';const ty=m.y-mobH(m)*m.scale*1.02-38;cx.strokeText('NPC 거점병장',m.x,ty);cx.fillStyle='#ffd36b';cx.fillText('NPC 거점병장',m.x,ty);}
-  if(!m.dead&&!m.boss&&!m.ally&&(m.elite||m.hp<m.maxHp)){
+  if(m.npcBoss&&!m.dead)npcBossDrawLabel(m);
+  if(!m.dead&&!m.boss&&!m.ally&&!m.npcBoss&&(m.elite||m.hp<m.maxHp)){
     const w=m.elite?54:36,x=m.x-w/2,y=m.y-mobH(m)*m.scale*1.02-8;
     if(m.leader){const c=AUC[m.set].join(','),by=y-12+Math.sin(time*4+m.seed)*3;cx.fillStyle='rgb('+c+')';cx.strokeStyle='#fff';cx.lineWidth=2;cx.beginPath();cx.moveTo(m.x-10,by-12);cx.lineTo(m.x+10,by-12);cx.lineTo(m.x,by+2);cx.closePath();cx.fill();cx.stroke();}
     cx.fillStyle='rgba(0,0,0,.6)';cx.fillRect(x-1,y-1,w+2,6);
@@ -3960,7 +4131,8 @@ function drawFx(){
   }
   // 적 투사체
   for(const s of shots){
-    if(s.kind==='ghost'){drawGhost(s);}else if(s.kind==='qi'){drawQi(s);}
+    if(s.npcColor){const c=s.npcColor.join(',');cx.save();cx.globalCompositeOperation='lighter';glow(s.x,s.y,29,'rgba('+c+',.93)','rgba('+c+',0)');glow(s.x,s.y,10,'rgba(255,255,255,.96)','rgba('+c+',0)');cx.restore();}
+    else if(s.kind==='ghost'){drawGhost(s);}else if(s.kind==='qi'){drawQi(s);}
     else if(s.kind==='bow'){
       const a=Math.atan2(s.vy,s.vx);cx.save();cx.translate(s.x,s.y);cx.rotate(a);cx.fillStyle='#e8d6a4';cx.fillRect(-14,-1.4,24,2.8);cx.fillStyle='#d8dde6';cx.beginPath();cx.moveTo(14,0);cx.lineTo(6,-4);cx.lineTo(6,4);cx.fill();cx.fillStyle='#fff';cx.fillRect(-14,-3,6,6);cx.restore();
     }else{
