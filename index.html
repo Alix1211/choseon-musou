@@ -13,7 +13,7 @@ window.CHOSEON_SYNC_DIRTY=false;
 </script>
 
 <!-- CHOSEON_LIVE_UPDATE: 2026-10-30-baseT-sync-v1 -->
-<!-- CHOSEON_GAME_REVISION: 20261030-zhenji-v1 -->
+<!-- CHOSEON_GAME_REVISION: 20261031-hero-attack-v1 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;--bg:#0e0a14;--panel:rgba(26,16,38,.86);--line:#5a4270;--ink:#f6ecff;--dim:#a893c0;--hot:#ff5aa5;--gold:#ffd36b;--off:#322a40;--hp:#e8456b}
@@ -531,8 +531,10 @@ function loadImg(src){return new Promise((res,rej)=>{const im=new Image();im.onl
 async function loadAll(){
   const J=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u);return r.json();});
   const [man,mj,tj,pj,ij,fj]=await Promise.all([J('a/choseon.json'),J('a/mobs.json'),J('a/tiles.json'),J('a/props.json'),J('a/items.json'),J('a/food.json')]);
-  A.fj=fj;A.man=man;A.mj=mj;A.tj=tj;A.pj=pj;A.ij=ij;A.sheets={};A.walk={};
-  const jobs=[];A.soldierWalk={};
+  A.fj=fj;A.man=man;A.mj=mj;A.tj=tj;A.pj=pj;A.ij=ij;A.sheets={};A.walk={};A.heroAttack={};
+  const jobs=[];
+  for(const id in HERO_ATTACK)jobs.push(loadImg(HERO_ATTACK[id]).then(im=>A.heroAttack[id]=im));
+  A.soldierWalk={};
   for(const key in SOLDIER_WALK)jobs.push(loadImg(SOLDIER_WALK[key].f).then(im=>A.soldierWalk[key]=im));
   for(const id in WALK)jobs.push(loadImg(WALK[id].f).then(im=>A.walk[id]=im).catch(()=>{}));
   for(const a in man)for(const d in man[a])jobs.push(loadImg('a/'+man[a][d].file).then(im=>A.sheets[a+'_'+d]=im));
@@ -4973,7 +4975,8 @@ function resize(){
 addEventListener('resize',resize);
 
 /* All 9 existing female generals share the approved playable controller.
-   Existing monster models, WALK frames and portraits; NO new attack sheets. */
+   Seven use their own approved 3-direction attacks; Xiaoqiao and Xingcai
+   keep the previously approved animation. Combat timing stays untouched. */
 const PLAY={active:'choseon',bagPause:false,bagWasPaused:false};
 /* Combat families are fixed by the existing character models; equipment
    inventory, upgrades, buffs and item attack values remain shared via ST. */
@@ -4988,6 +4991,28 @@ const PLAYABLE_HEROES=Object.freeze({
   xingcai: {weapon:'sword',model:'xingcai', portrait:'xingcai'}, // 성채: 검 계열
   yueying: {weapon:'sword',model:'yueying', portrait:'yueying'}   // 월영: 언월도/검 계열
 });
+/* Rows: side, front, back; columns: preparation, hit, recovery. */
+const HERO_ATTACK=Object.freeze({
+  zhenji:'a/hero_attack/zhenji.webp',wenji:'a/hero_attack/wenji.webp',
+  wangyi:'a/hero_attack/wangyi.webp',daqiao:'a/hero_attack/daqiao.webp',
+  shangxiang:'a/hero_attack/shangxiang.webp',yinping:'a/hero_attack/yinping.webp',
+  yueying:'a/hero_attack/yueying.webp'
+});
+function drawHeroAttack(id,x,y,face,progress,scale,alpha=1){
+  const im=A.heroAttack&&A.heroAttack[id],wk=WALK[id],mt=MT[id];
+  if(!im||!wk||!mt)return false;
+  const row=face==='down'?1:face==='up'?2:0;
+  const flip=face==='left',frame=progress<.28?0:progress<.76?1:2;
+  const fw=im.width/3,fh=im.height/3;
+  // Match the existing 308px walk sheet's world-space character height.
+  const sc=mobH({type:id})/(mt.H||A.mj.h)*scale*wk.fw/fh;
+  drawShadow(x,y,45,13,.28*alpha);
+  cx.save();cx.translate(x,y);cx.globalAlpha=alpha;
+  cx.scale((flip?-1:1)*sc,sc);
+  cx.drawImage(im,frame*fw,row*fh,fw,fh,-fw/2,-fh,fw,fh);
+  cx.restore();
+  return true;
+}
 function combatWeapon(){return PLAYABLE_HEROES[PLAY.active]?.weapon||ST.wt;}
 function playableOrder(){
   return ['choseon',...S.party.filter(id=>PLAYABLE_HEROES[id]&&S.roster.includes(id))];
@@ -5079,6 +5104,10 @@ function drawBenchedChoseon(a){
 const playableDrawBase=drawPlayer;
 drawPlayer=function(){
   if(PLAY.active==='choseon')return playableDrawBase();
+  if(P.atk&&P.atk!=='spinfan'&&HERO_ATTACK[PLAY.active]){
+    const key=dirKey(P.face)[0],e=A.man[P.atk][key];
+    if(drawHeroAttack(PLAY.active,P.x,P.y,P.face,Math.min(1,P.atkT/e.frames),1.16,P.alpha))return;
+  }
   // Reuse the selected hero's existing model, 4-frame WALK and casting pose.
   const progress=P.atk?Math.min(1,P.atkT/A.man[P.atk][P.atk==='spinfan'?'front':dirKey(P.face)[0]].frames):0;
   drawMob({type:PLAYABLE_HEROES[PLAY.active].model,set:'h',x:P.x,y:P.y,face:P.face,scale:1.16,seed:0,
@@ -5086,6 +5115,16 @@ drawPlayer=function(){
     lunge:P.atk&&progress>=.5?Math.max(0,1-(progress-.5)*2):0,
     hurt:hurtFlash>0?.14:0,stun:0,dead:P.mode==='dead',deadT:P.mode==='dead'?P.tt:0,
     down:false,ally:false,hp:P.hp,maxHp:stat.maxHp(),au:0});
+};
+const playableDrawMobBase=drawMob;
+drawMob=function(m){
+  if(m.ally&&!m.dead&&!m.down&&m.act&&HERO_ATTACK[m.type]){
+    const progress=Math.min(1,m.act.t/m.act.dur);
+    if(drawHeroAttack(m.type,m.x,m.y,m.face,progress,m.scale,1)){
+      drawAllyTag(m);return;
+    }
+  }
+  return playableDrawMobBase(m);
 };
 const playableOpenBagBase=openBag,playableCloseBagBase=closeBag;
 openBag=function(){

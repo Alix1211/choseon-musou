@@ -1,5 +1,6 @@
 /* All 9 existing female generals share the approved playable controller.
-   Existing monster models, WALK frames and portraits; NO new attack sheets. */
+   Seven use their own approved 3-direction attacks; Xiaoqiao and Xingcai
+   keep the previously approved animation. Combat timing stays untouched. */
 const PLAY={active:'choseon',bagPause:false,bagWasPaused:false};
 /* Combat families are fixed by the existing character models; equipment
    inventory, upgrades, buffs and item attack values remain shared via ST. */
@@ -14,6 +15,28 @@ const PLAYABLE_HEROES=Object.freeze({
   xingcai: {weapon:'sword',model:'xingcai', portrait:'xingcai'}, // 성채: 검 계열
   yueying: {weapon:'sword',model:'yueying', portrait:'yueying'}   // 월영: 언월도/검 계열
 });
+/* Rows: side, front, back; columns: preparation, hit, recovery. */
+const HERO_ATTACK=Object.freeze({
+  zhenji:'a/hero_attack/zhenji.webp',wenji:'a/hero_attack/wenji.webp',
+  wangyi:'a/hero_attack/wangyi.webp',daqiao:'a/hero_attack/daqiao.webp',
+  shangxiang:'a/hero_attack/shangxiang.webp',yinping:'a/hero_attack/yinping.webp',
+  yueying:'a/hero_attack/yueying.webp'
+});
+function drawHeroAttack(id,x,y,face,progress,scale,alpha=1){
+  const im=A.heroAttack&&A.heroAttack[id],wk=WALK[id],mt=MT[id];
+  if(!im||!wk||!mt)return false;
+  const row=face==='down'?1:face==='up'?2:0;
+  const flip=face==='left',frame=progress<.28?0:progress<.76?1:2;
+  const fw=im.width/3,fh=im.height/3;
+  // Match the existing 308px walk sheet's world-space character height.
+  const sc=mobH({type:id})/(mt.H||A.mj.h)*scale*wk.fw/fh;
+  drawShadow(x,y,45,13,.28*alpha);
+  cx.save();cx.translate(x,y);cx.globalAlpha=alpha;
+  cx.scale((flip?-1:1)*sc,sc);
+  cx.drawImage(im,frame*fw,row*fh,fw,fh,-fw/2,-fh,fw,fh);
+  cx.restore();
+  return true;
+}
 function combatWeapon(){return PLAYABLE_HEROES[PLAY.active]?.weapon||ST.wt;}
 function playableOrder(){
   return ['choseon',...S.party.filter(id=>PLAYABLE_HEROES[id]&&S.roster.includes(id))];
@@ -105,6 +128,10 @@ function drawBenchedChoseon(a){
 const playableDrawBase=drawPlayer;
 drawPlayer=function(){
   if(PLAY.active==='choseon')return playableDrawBase();
+  if(P.atk&&P.atk!=='spinfan'&&HERO_ATTACK[PLAY.active]){
+    const key=dirKey(P.face)[0],e=A.man[P.atk][key];
+    if(drawHeroAttack(PLAY.active,P.x,P.y,P.face,Math.min(1,P.atkT/e.frames),1.16,P.alpha))return;
+  }
   // Reuse the selected hero's existing model, 4-frame WALK and casting pose.
   const progress=P.atk?Math.min(1,P.atkT/A.man[P.atk][P.atk==='spinfan'?'front':dirKey(P.face)[0]].frames):0;
   drawMob({type:PLAYABLE_HEROES[PLAY.active].model,set:'h',x:P.x,y:P.y,face:P.face,scale:1.16,seed:0,
@@ -112,6 +139,16 @@ drawPlayer=function(){
     lunge:P.atk&&progress>=.5?Math.max(0,1-(progress-.5)*2):0,
     hurt:hurtFlash>0?.14:0,stun:0,dead:P.mode==='dead',deadT:P.mode==='dead'?P.tt:0,
     down:false,ally:false,hp:P.hp,maxHp:stat.maxHp(),au:0});
+};
+const playableDrawMobBase=drawMob;
+drawMob=function(m){
+  if(m.ally&&!m.dead&&!m.down&&m.act&&HERO_ATTACK[m.type]){
+    const progress=Math.min(1,m.act.t/m.act.dur);
+    if(drawHeroAttack(m.type,m.x,m.y,m.face,progress,m.scale,1)){
+      drawAllyTag(m);return;
+    }
+  }
+  return playableDrawMobBase(m);
 };
 const playableOpenBagBase=openBag,playableCloseBagBase=closeBag;
 openBag=function(){

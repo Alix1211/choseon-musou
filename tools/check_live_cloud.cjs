@@ -22,5 +22,8 @@ assert(fs.readFileSync('android/app/src/main/java/com/kane/choseonmusou/SaveSync
 assert(fs.readFileSync('android/app/src/main/java/com/kane/choseonmusou/SaveSyncManager.java','utf8').includes('takePersistableUriPermission'));
 assert(main.includes('readCachedIndex'),'Offline fallback should exist');
 assert(manifest.includes('android.permission.INTERNET'));
-assert(gradle.includes("versionName '0.10-zhenji-swap'"));
+assert(gradle.includes("versionName '0.11-hero-attack'"));
+assert(html.includes('CHOSEON_GAME_REVISION: 20261031-hero-attack-v1'));
+assert(main.includes('CHOSEON_GAME_REVISION: 20261031-hero-attack-v1'),
+  'Reject previous online HTML so this APK keeps its new local attack assets');
 console.log('PASS: melee whip, unchanged technique voices, same-origin live HTML, ARPG-standard Drive synchronization');

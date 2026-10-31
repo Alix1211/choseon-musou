@@ -137,7 +137,7 @@ public final class MainActivity extends Activity {
         if (bytes == null || bytes.length < 120000 || bytes.length > 1500000) return false;
         String html = new String(bytes, StandardCharsets.UTF_8);
         return html.contains("CHOSEON_LIVE_UPDATE:") &&
-                html.contains("CHOSEON_GAME_REVISION: 20261030-zhenji-v1") &&
+                html.contains("CHOSEON_GAME_REVISION: 20261031-hero-attack-v1") &&
                 html.contains("const SAVEKEY='choseon_musou_v2'") &&
                 html.contains("function endStage()") &&
                 html.contains("window.ChoseonCloud=");

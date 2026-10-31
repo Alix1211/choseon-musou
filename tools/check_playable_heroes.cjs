@@ -4,6 +4,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const source=fs.readFileSync('_new/m3_playable.js','utf8');
 const ids=['zhenji','wenji','wangyi','xiaoqiao','daqiao','shangxiang','yinping','xingcai','yueying'];
+const customAttack=['zhenji','wenji','wangyi','daqiao','shangxiang','yinping','yueying'];
 const family={zhenji:'fan',wenji:'fan',wangyi:'sword',xiaoqiao:'fan',daqiao:'fan',shangxiang:'whip',yinping:'sword',xingcai:'sword',yueying:'sword'};
 const hp={zhenji:[.9,1.1,1],wenji:[.8,1.2,1],wangyi:[1,1.15,1.05],xiaoqiao:[.8,1,1.25],daqiao:[1.25,.85,.95],shangxiang:[1,1.1,1.15],yinping:[1.1,1.2,1],xingcai:[1.2,1,.95],yueying:[.95,1.15,1.1]};
 function app(){
@@ -25,7 +26,10 @@ function app(){
      skCd:[9,6],spinCd:4,slowT:.3,kx:0,ky:0,atkT:0},
    M:{musou:true,trans:false,n:8,replay:false},UI:{mode:'battle',paused:false,settingsOpen:false},
    BUF:{atk:0,def:0},ULT:{active:false},FEM:new Set(ids),HPERS:hp,
-   MT:{},allies:[],PS:.48,CH:82,A:{man:{sword:{front:{frames:8}},fan:{front:{frames:8}},whip:{front:{frames:8}},spinfan:{front:{frames:8}}}},
+   MT:Object.fromEntries(ids.map(id=>[id,{H:300,vh:130}])),
+   WALK:Object.fromEntries(ids.map(id=>[id,{fw:308}])),mobH:()=>130,
+   allies:[],PS:.48,CH:82,A:{heroAttack:Object.fromEntries(customAttack.map(id=>[id,{width:1452,height:1086}])),mj:{h:300},man:{sword:{front:{frames:8},side:{frames:8},back:{frames:8}},fan:{front:{frames:8},side:{frames:8},back:{frames:8}},whip:{front:{frames:8},side:{frames:8},back:{frames:8}},spinfan:{front:{frames:8}}}},
+   spriteDraws:[],cx:{save(){},restore(){},translate(){},scale(){},drawImage(...args){ctx.spriteDraws.push(args);}},
    SLOTS:[],lvm:(lvl,k)=>1+k*(lvl-1),heroLv:id=>Math.min(ctx.S.lv,ctx.S.hl[id]||1),fmt:n=>String(Math.round(n)),
    fmt1:n=>n.toFixed(1),expNeed:()=>100,stats:{},stat:{atk:()=>300,maxHp:()=>1800,def:()=>90},
    bagOpen:false,bagDirty:false,time:1,hurtFlash:0,saveCount:0,voiceStops:0,
@@ -43,7 +47,7 @@ function app(){
    PLAY_DATA:ids,document:{addEventListener(){}},$:el,Math,
  };
  vm.createContext(ctx);
- vm.runInContext(source+'\nglobalThis.TEST={PLAY,PLAYABLE_HEROES,combatWeapon,playableLevel,playableStats,playableOrder,nextPlayable,switchPlayable};',ctx,{filename:'m3_playable.js'});
+ vm.runInContext(source+'\nglobalThis.TEST={PLAY,PLAYABLE_HEROES,HERO_ATTACK,combatWeapon,playableLevel,playableStats,playableOrder,nextPlayable,switchPlayable};',ctx,{filename:'m3_playable.js'});
  ctx.save=function(){this.saveCount++;}; // used by switchPlayable through global
  ctx.save=()=>{ctx.saveCount++;};
  return ctx;
@@ -72,6 +76,19 @@ for(const id of ids){
  check(t.nextPlayable()==='choseon',id+' reverse swap available');
  ctx.drawn=null;ctx.drawPlayer();
  check(ctx.drawn?.type===id&&ctx.drawn?.set==='h',id+' actual hero model draws');
+ if(customAttack.includes(id)){
+   check(t.HERO_ATTACK[id]==='a/hero_attack/'+id+'.webp',id+' approved unique attack sheet');
+   for(const [face,row] of [['right',0],['down',1],['up',2],['left',0]]){
+     ctx.P.face=face;ctx.P.atk=family[id];
+     for(const [time,frame] of [[0,0],[4,1],[8,2]]){
+       ctx.P.atkT=time;ctx.spriteDraws=[];ctx.drawPlayer();
+       const call=ctx.spriteDraws[0];
+       check(call&&call[1]===484*frame&&call[2]===362*row&&call[3]===484&&call[4]===362,
+         id+' '+face+' frame '+frame+' sprite window');
+     }
+   }
+   ctx.P.face='down';ctx.P.atk=null;
+ }else check(!t.HERO_ATTACK[id],id+' keeps the previously approved animation');
  ctx.refreshUI();
  check(ctx.$('playerPortrait').image.src==='a/ui/pt/'+id+'.webp',id+' active portrait');
  check(ctx.$('allySwap').image.src==='a/ui/pt/choseon.webp',id+' next ally portrait');
@@ -113,6 +130,11 @@ for(const id of ids){
 }
 const p2=fs.readFileSync('_new/p2playable.py','utf8');
 assert(p2.includes("rd('m3_playable.js')"),'generated HTML must embed canonical playable code');
+assert(p2.includes('A.heroAttack[id]=im'),'new attack sheets must load through the canonical generator');
+for(const id of customAttack){
+ const png=fs.statSync('a/hero_attack/'+id+'.webp');
+ assert(png.size>50000,id+' cleaned atlas must be present');
+}
 assert(p2.includes("rd('playable.css')"),'approved swap and portrait layout must persist');
 assert(!source.includes("PLAY.active==='zhenji'"),'no hardcoded Zhenji-only switching');
 assert(!source.includes("type:'zhenji',set:'h'"),'no hardcoded Zhenji-only player model');
