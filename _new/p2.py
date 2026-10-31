@@ -96,6 +96,7 @@ if not os.environ.get('NOD'):
     exec(open(B+'_new/p2npc_bosses_01_20.py',encoding='utf-8').read())
     exec(open(B+'_new/p2shu21_25.py',encoding='utf-8').read())
     exec(open(B+'_new/p2shu26_30.py',encoding='utf-8').read())
+    exec(open(B+'_new/p2lords31_39.py',encoding='utf-8').read())
     open(B+'index.html','w',encoding='utf-8').write(src)
 
 print('ok',len(src))
