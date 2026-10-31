@@ -99,6 +99,9 @@ if not os.environ.get('NOD'):
     exec(open(B+'_new/p2shu26_30.py',encoding='utf-8').read())
     exec(open(B+'_new/p2lords31_39.py',encoding='utf-8').read())
     exec(open(B+'_new/p2final40.py',encoding='utf-8').read())
+    # stopInput is finalized by the later approved overlays; clear queued taps there too.
+    rep("CB.pending=null;CB.seq='';CB.last=0;CB.dashUntil=0;CB.dash=null;",
+        "CB.pending=null;CB.queued.length=0;CB.seq='';CB.last=0;CB.dashUntil=0;CB.dash=null;")
     open(B+'index.html','w',encoding='utf-8').write(src)
 
 print('ok',len(src))
