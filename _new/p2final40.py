@@ -20,5 +20,7 @@ rep('  drawZones();drawVents();drawWards();drawLeaderAuras(x0,y0,vw,vh);',
     '  drawZones();drawVents();drawWards();drawLeaderAuras(x0,y0,vw,vh);final40World();')
 rep('  const x0=camx-vw/2,y0=camy-vh/2;',
     '  if(M.n===40&&M.f40&&M.f40.giant){camx=M.f40.arena.x;camy=M.f40.arena.y;}\n  const x0=camx-vw/2,y0=camy-vh/2;')
-rep('  const jobs=[];','  const jobs=[];\n  jobs.push(loadImg(\'a/stage40/npc27_walk.webp\').then(im=>A.final40Walk=im));\n  jobs.push(loadImg(\'a/stage40/npc27_giant.png\').then(im=>A.final40Giant=im));\n  jobs.push(loadImg(\'a/stage40/cliff.jpg\').then(im=>A.final40Cliff=im));')
+rep('async function loadAll(){',rd('m3_stage40_loader.js')+'\nasync function loadAll(){')
+rep('  const jobs=[];',
+    '  const jobs=[];\n  loadStage40Image(\'a/stage40/npc27_walk.webp\').then(im=>A.final40Walk=im);\n  loadStage40Image(\'a/stage40/npc27_giant.png\').then(im=>A.final40Giant=im);\n  loadStage40Image(\'a/stage40/cliff.jpg\').then(im=>A.final40Cliff=im);')
 rep('openExit,KAN_PLAN,','openExit,KAN_PLAN,final40Init,final40Tick,final40Target,final40Text,')

@@ -14,6 +14,8 @@ assert(!/comboBolt\(/.test(html),'No long-range whip bolts in combat');
 assert(html.includes('REACH={sword:146,whip:170,fan:600}'),'Keep whip broader than sword');
 assert(html.includes("hitMob(m,base*.85,'whip'"),'Whip should stay lower power');
 assert(html.includes('무쌍난무')&&html.includes("CM_AUDIO.playVoice('skill_'+w"),'Existing move names and voice hooks must remain');
+assert(html.includes('async function loadStage40Image(path)'), 'Keep Stage 40 art fallback for old APKs');
+assert(!html.includes("jobs.push(loadImg('a/stage40/"), 'Stage 40 art must not block game boot and Drive sync');
 assert(main.includes('https://raw.githubusercontent.com/Alix1211/choseon-musou/mobile-live/index.html'));
 assert(main.includes('appassets.androidplatform.net'),'Preserve same origin and local save');
 assert(main.includes('new SaveSyncManager(this, webView)'));

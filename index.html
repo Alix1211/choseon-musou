@@ -528,14 +528,42 @@ let VW=0,VH=0,Z=1,DPR=1;
 
 /* ───────── 불러오기 ───────── */
 function loadImg(src){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=()=>rej(new Error('불러오지 못했습니다: '+src));im.src=src;});}
+/* Stage 40 art: never block the game or save synchronization on old APKs. */
+async function stage40Timed(promise,ms){
+  let timer;
+  try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('timeout')),ms);})]);}
+  finally{clearTimeout(timer);}
+}
+async function loadStage40Image(path){
+  try{return await stage40Timed(loadImg(path),4500);}catch(e){}
+  const url='https://raw.githubusercontent.com/Alix1211/choseon-musou/1700d406f35d90032d21f2d74a1ebbcc3a925a05/'+path;
+  let cache=null,response=null;
+  try{
+    try{cache=await stage40Timed(caches.open('choseon-stage40-v1'),2500);
+      response=await stage40Timed(cache.match(url),2500);}catch(e){}
+    if(!response){
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),16000);
+      try{response=await fetch(url,{signal:controller.signal});}
+      finally{clearTimeout(timer);}
+      if(!response.ok)throw Error('HTTP '+response.status);
+      if(cache)cache.put(url,response.clone()).catch(()=>{});
+    }
+    const blob=await stage40Timed(response.blob(),10000);
+    const objectURL=URL.createObjectURL(blob);
+    try{return await stage40Timed(loadImg(objectURL),8000);}
+    finally{URL.revokeObjectURL(objectURL);}
+  }catch(error){console.warn('Stage 40 art unavailable: '+path,error);return null;}
+}
+
 async function loadAll(){
   const J=u=>fetch(u).then(r=>{if(!r.ok)throw new Error(u);return r.json();});
   const [man,mj,tj,pj,ij,fj]=await Promise.all([J('a/choseon.json'),J('a/mobs.json'),J('a/tiles.json'),J('a/props.json'),J('a/items.json'),J('a/food.json')]);
   A.fj=fj;A.man=man;A.mj=mj;A.tj=tj;A.pj=pj;A.ij=ij;A.sheets={};A.walk={};A.heroAttack={};
   const jobs=[];
-  jobs.push(loadImg('a/stage40/npc27_walk.webp').then(im=>A.final40Walk=im));
-  jobs.push(loadImg('a/stage40/npc27_giant.png').then(im=>A.final40Giant=im));
-  jobs.push(loadImg('a/stage40/cliff.jpg').then(im=>A.final40Cliff=im));
+  // Load late-game art in the background so cloud saves work on older APKs.
+  loadStage40Image('a/stage40/npc27_walk.webp').then(im=>A.final40Walk=im);
+  loadStage40Image('a/stage40/npc27_giant.png').then(im=>A.final40Giant=im);
+  loadStage40Image('a/stage40/cliff.jpg').then(im=>A.final40Cliff=im);
   for(const id in HERO_ATTACK)jobs.push(loadHeroAttack(id).then(im=>{if(im)A.heroAttack[id]=im;}));
   A.soldierWalk={};
   for(const key in SOLDIER_WALK)jobs.push(loadImg(SOLDIER_WALK[key].f).then(im=>A.soldierWalk[key]=im));
