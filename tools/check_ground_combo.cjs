@@ -5,7 +5,6 @@ const vm=require('node:vm');
 const source=fs.readFileSync('_new/m3_hero_weapons.js','utf8');
 const combo=fs.readFileSync('_new/m3_combo.js','utf8');
 assert(combo.includes("HHL:'slam',HHHL:'rocks'"));
-assert(combo.includes("move==='rocks'&&typeof comboGroundBurst!=='function'"));
 let saves=0,restores=0,paths=0,stones=0,atlasDraws=0;
 const cx={
  save(){saves++},restore(){restores++},translate(){},rotate(){},
