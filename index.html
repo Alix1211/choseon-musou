@@ -560,7 +560,6 @@ async function loadAll(){
   const [man,mj,tj,pj,ij,fj]=await Promise.all([J('a/choseon.json'),J('a/mobs.json'),J('a/tiles.json'),J('a/props.json'),J('a/items.json'),J('a/food.json')]);
   A.fj=fj;A.man=man;A.mj=mj;A.tj=tj;A.pj=pj;A.ij=ij;A.sheets={};A.walk={};A.heroAttack={};
   const jobs=[];
-  // Load late-game art in the background so cloud saves work on older APKs.
   loadStage40Image('a/stage40/npc27_walk.webp').then(im=>A.final40Walk=im);
   loadStage40Image('a/stage40/npc27_giant.png').then(im=>A.final40Giant=im);
   loadStage40Image('a/stage40/cliff.jpg').then(im=>A.final40Cliff=im);
