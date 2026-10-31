@@ -25,5 +25,3 @@ rep("if(comboNow()>(p.until||p.at+COMBO_TIMING.bufferMs)){CB.pending=null;}",
 rep("CB.pending=null;comboBegin(p,n,inp);",
     "CB.pending=CB.queued.shift()||null;comboBegin(p,n,inp);")
 # A separate stop-input path resets the combo directly instead of calling comboReset.
-rep("CB.pending=null;CB.seq='';CB.last=0;CB.dashUntil=0;CB.dash=null;",
-    "CB.pending=null;CB.queued.length=0;CB.seq='';CB.last=0;CB.dashUntil=0;CB.dash=null;")
