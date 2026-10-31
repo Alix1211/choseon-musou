@@ -1,0 +1,409 @@
+--- a/index.html
++++ b/index.html
+@@ -12,6 +12,7 @@
+ window.CHOSEON_SYNC_DIRTY=false;
+ </script>
+ 
++<!-- CHOSEON_LIVE_UPDATE: 2026-10-30-baseT-sync-v1 -->
+ <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet">
+ <style>
+ :root{color-scheme:dark;--bg:#0e0a14;--panel:rgba(26,16,38,.86);--line:#5a4270;--ink:#f6ecff;--dim:#a893c0;--hot:#ff5aa5;--gold:#ffd36b;--off:#322a40;--hp:#e8456b}
+@@ -65,6 +66,9 @@
+ @media (max-width:430px){body #dash{right:calc(max(16px,env(safe-area-inset-right,0px)) + 198px);width:68px;height:68px}}
+ 
+ 
++/* v0.4 HUD correction: remove obsolete purple skill buttons; Musou uses Choseon portrait, not a star. */
++body #sk1,body #sk2{display:none!important}
++body #musou{background:#1b1a1e url("a/ui/pt/choseon.webp") center 18%/190% auto no-repeat!important;overflow:hidden;font-size:0!important;color:transparent!important}
+ /* 이번 패치: 강/약공격 좌우 변경, 작은 무쌍, 동료 버튼 분리. */
+ body #atk{right:calc(max(16px,env(safe-area-inset-right,0px)) + 105px)!important;width:86px!important;height:86px!important}
+ body #spin{right:max(16px,env(safe-area-inset-right,0px))!important;width:94px!important;height:94px!important}
+@@ -385,6 +389,21 @@
+ #pause{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 184px);top:calc(max(8px,env(safe-area-inset-top,0px)) + 20px);width:28px;height:29px;min-height:0;padding:0;border:0;background:rgba(10,8,16,.35);border-radius:5px;color:#fff;font:800 20px/29px system-ui,sans-serif;text-shadow:0 1px 4px #000;box-shadow:none;z-index:6;touch-action:manipulation;pointer-events:auto}
+ @media(max-width:700px){#tr #mm{width:126px;height:95px}#pause{right:calc(max(16px,env(safe-area-inset-right,0px)) + 136px);top:calc(max(8px,env(safe-area-inset-top,0px)) + 17px);width:26px;height:27px;font-size:18px}}
+ 
++
++/* v0.5 Android tablet action cluster: attack icons stay in place; dash is
++   adjacent to light attack instead of floating above it. Small Musou portrait
++   sits immediately to the left. Layout works in both landscape tablet/phone. */
++body #dash{
++  right:calc(max(16px,env(safe-area-inset-right,0px)) + 202px)!important;
++  bottom:calc(var(--barh,64px) + 26px + env(safe-area-inset-bottom,0px))!important;
++  width:74px!important;height:74px!important;
++}
++body #musou{
++  right:calc(max(16px,env(safe-area-inset-right,0px)) + 294px)!important;
++  bottom:calc(var(--barh,64px) + 40px + env(safe-area-inset-bottom,0px))!important;
++  width:43px!important;height:43px!important;
++}
++
+ </style>
+ <canvas id="c"></canvas>
+ <div class="hud" id="top">
+@@ -402,7 +421,7 @@
+ <button id="atk" disabled>공격</button>
+ <button id="spin" disabled title="강공격" aria-label="강공격"></button>
+ <button id="dash" disabled title="대시" aria-label="대시"></button>
+-<button id="musou" disabled title="무쌍 필살기" aria-label="무쌍 필살기">★</button>
++<button id="musou" disabled title="무쌍난무" aria-label="무쌍난무"></button>
+ <button id="sk1" class="skb" disabled></button><button id="sk2" class="skb" disabled></button>
+ <div id="bag" hidden><div class="bw">
+   <div class="bh"><b>가방</b><span id="bcnt"></span><button id="bclose">닫기</button></div>
+@@ -1151,10 +1170,15 @@
+ /* 사용자 제공 BGM 3곡 / 골든퀘스트 파일 효과음. 첫 입력 뒤에만 재생한다. */
+ const CM_AUDIO=(()=>{
+   const root=new URL('./a/audio/',location.href).href;
++  const voiceRoot=new URL('./a/voice/',location.href).href;
+   let settings={bgm:true,sfx:true};
+   try{const s=JSON.parse(localStorage.getItem('choseon_audio')||'{}');for(const k of ['bgm','sfx'])if(typeof s[k]==='boolean')settings[k]=s[k];}catch(e){}
+   let unlocked=false,ctx=null,gain=null,track='',playing=0;
+   const buffers={},loading={},last={};
++  const voiceCache={},voiceLoading={};
++  let voiceActive=null,voicePriority=0,voiceDeadline=0,voicePending=false,voiceToken=0,lastBattleVoice=0;
++  // Voice priority: 1=skill name (disposable), 2=battle bark, 3=story/dialogue.
++  // Skills never queue, never interrupt and yield instantly to higher-priority voices.
+   const names=['swing','thrust','slash','spin','hit','punch','explosion','heal','teleport','staff'];
+   const music=new Audio();music.loop=true;music.preload='none';music.volume=.38;
+   function load(name){
+@@ -1181,18 +1205,75 @@
+     const fire=b=>{if(!b||!settings.sfx||document.hidden||UI.paused||ctx.state!=='running')return;const s=ctx.createBufferSource();s.buffer=b;s.connect(gain);s.start();};
+     if(buffers[name])fire(buffers[name]);else load(name).then(fire);
+   }
++
++  function stopVoice(){
++    ++voiceToken;
++    if(voiceActive){try{voiceActive.stop();}catch(e){}voiceActive=null;}
++    voicePriority=0;voiceDeadline=0;voicePending=false;
++  }
++  function voiceFile(id){
++    if(!/^(skill|battle|stage|map|event)_[a-zA-Z0-9_]+$/.test(id))return null;
++    const folder=id.startsWith('skill_')?'skills':id.startsWith('battle_')?'battle':id.startsWith('stage_')?'stage':id.startsWith('map_')?'map':'event';
++    return voiceRoot+folder+'/'+id+'.mp3';
++  }
++  function playVoice(id,priority=1){
++    if(!unlocked||!settings.sfx||document.hidden||!ctx||ctx.state!=='running')return false;
++    if(UI.paused&&UI.mode!=='dlg')return false;
++    const url=voiceFile(id);if(!url)return false;
++    const now=performance.now(),busy=voicePending||!!voiceActive||now<voiceDeadline;
++    // Skill voice is the very last priority: skip it whenever any other
++    // dialogue, combat bark or skill is playing/being loaded. No catch-up.
++    if(priority===1&&busy)return false;
++    // A battle bark may replace a skill mid-word, but not another bark or
++    // story voice. Keep the existing anti-spam interval for barks.
++    if(priority===2&&(now-lastBattleVoice<3500||(busy&&voicePriority>=2)))return false;
++    if(busy&&priority<voicePriority)return false;
++    if(priority===2)lastBattleVoice=now;
++    stopVoice();
++    const token=voiceToken;
++    voicePriority=priority;voicePending=true;
++    const clearPending=()=>{
++      if(token===voiceToken&&!voiceActive){
++        voicePending=false;voicePriority=0;voiceDeadline=0;
++      }
++    };
++    function start(b){
++      if(token!==voiceToken)return;
++      if(!b||!settings.sfx||document.hidden||!ctx||ctx.state!=='running'){
++        clearPending();return;
++      }
++      const src=ctx.createBufferSource();src.buffer=b;
++      const vol=ctx.createGain();vol.gain.value=priority===3?.77:.86;
++      src.connect(vol);vol.connect(ctx.destination);
++      src.onended=()=>{if(voiceActive===src){
++        voiceActive=null;voicePending=false;voicePriority=0;voiceDeadline=0;
++      }};
++      voiceActive=src;voicePending=false;
++      voiceDeadline=performance.now()+b.duration*1000;
++      try{src.start();}catch(e){voiceActive=null;clearPending();}
++    }
++    if(voiceCache[id])start(voiceCache[id]);
++    else{
++      const load=voiceLoading[id]||(voiceLoading[id]=fetch(url)
++        .then(r=>{if(!r.ok)throw Error('Missing voice '+id);return r.arrayBuffer();})
++        .then(b=>ctx.decodeAudioData(b)).then(b=>voiceCache[id]=b)
++        .catch(()=>null));
++      load.then(start,clearPending);
++    }
++    return true;
++  }
+   const controls=document.createElement('div');controls.id='soundControls';
+   controls.style.cssText='position:fixed;right:10px;bottom:10px;z-index:9998;display:flex;gap:6px';
+   for(const [key,label] of [['bgm','배경음'],['sfx','효과음']]){
+     const b=document.createElement('button');b.id='sound_'+key;b.style.cssText='font:700 14px system-ui;padding:8px;color:#fff4d0;background:#281d32;border:1px solid #d5ae59;border-radius:6px';
+     const paint=()=>{b.textContent=label+' '+(settings[key]?'켬':'끔');b.setAttribute('aria-pressed',String(settings[key]));};
+-    b.onclick=()=>{settings[key]=!settings[key];try{localStorage.setItem('choseon_audio',JSON.stringify(settings));}catch(e){}paint();sync();};paint();controls.appendChild(b);
++    b.onclick=()=>{settings[key]=!settings[key];if(key==='sfx'&&!settings.sfx)stopVoice();try{localStorage.setItem('choseon_audio',JSON.stringify(settings));}catch(e){}paint();sync();};paint();controls.appendChild(b);
+   }
+   document.body.appendChild(controls);
+   addEventListener('pointerdown',unlock,{capture:true});addEventListener('keydown',unlock,{capture:true});
+-  document.addEventListener('visibilitychange',()=>{if(document.hidden){playing++;music.pause();}else sync();});
++  document.addEventListener('visibilitychange',()=>{if(document.hidden){playing++;music.pause();stopVoice();}else sync();});
+   setInterval(()=>{sync();controls.style.display=UI.mode==='boot'||(UI.mode==='battle'&&!UI.paused)||UI.mode==='dlg'||UI.mode==='cut'?'none':'flex';},200);
+-  return {play,sync,get track(){return track;},get music(){return music;},get loaded(){return Object.keys(buffers);}};
++  return {play,playVoice,stopVoice,sync,get track(){return track;},get music(){return music;},get loaded(){return Object.keys(buffers);}};
+ })();
+ 
+ function startAttack(w,target){
+@@ -1253,6 +1334,7 @@
+   CM_AUDIO.play(w==='sword'?(i===0?'thrust':'slash'):w==='whip'?'spin':'staff');
+   pops.push({x:P.x,y:P.y-CH*2.3,t:0,txt:SK[w][i].n,col:'#ffd0ec',size:16,vy:-34});
+   bark(i===1?'ult':'charge');
++  CM_AUDIO.playVoice('skill_'+w+'_0'+(i+8),1);
+   if(w==='sword'&&i===0){
+     const f=fwd(),a=(inp&&(inp.x||inp.y))?Math.atan2(inp.y,inp.x):(t?Math.atan2(t.y-P.y,t.x-P.x):Math.atan2(f.y-P.y,f.x-P.x));
+     startAttack('sword',{x:P.x+Math.cos(a)*60,y:P.y+Math.sin(a)*60});P.hitDone=true;
+@@ -3600,30 +3682,38 @@
+ }
+ function glow(x,y,r,c0,c1){const g=cx.createRadialGradient(x,y,1,x,y,r);g.addColorStop(0,c0);g.addColorStop(1,c1);cx.fillStyle=g;cx.beginPath();cx.arc(x,y,r,0,7);cx.fill();}
+ function arcBand(x,y,a0,a1,R,thick,headU,alphaMul,tailPow){
+-  // 끝이 가늘어지는 초승달 띠: 머리(headU)가 가장 밝고 꼬리로 갈수록 투명
+-  const N=26;
+-  for(let i=0;i<N;i++){
+-    const u0=i/N,u1=(i+1)/N;if(u0>headU)break;
+-    const ua=Math.min(u1,headU),al=Math.pow(u1/Math.max(headU,.001),tailPow||2)*alphaMul;
+-    const A0=lerp(a0,a1,u0),A1=lerp(a0,a1,ua),th0=Math.sin(Math.PI*Math.min(1,u0/.95))*thick,th1=Math.sin(Math.PI*Math.min(1,ua/.95))*thick;
++  // Mobile Canvas: fewer feathered slices; keeps the curved blade trail without
++  // forcing 26 individually blended paths for each stroke on every animation frame.
++  const N=10,visible=Math.min(N,Math.ceil(Math.max(0,headU)*N));
++  for(let i=0;i<visible;i++){
++    const u0=i/N,u1=Math.min((i+1)/N,headU);
++    if(u1<=u0)continue;
++    const al=Math.pow(u1/Math.max(headU,.001),tailPow||2)*alphaMul;
++    const A0=lerp(a0,a1,u0),A1=lerp(a0,a1,u1);
++    const th1=Math.sin(Math.PI*Math.min(1,u1/.95))*thick;
+     cx.fillStyle='rgba(255,'+(((200+55*(u1/Math.max(headU,.01)))|0))+',235,'+al+')';
+-    cx.beginPath();
+-    cx.arc(x,y,R,A0,A1);cx.arc(x,y,Math.max(1,R-th1),A1,A0,true);cx.closePath();cx.fill();
++    cx.beginPath();cx.arc(x,y,R,A0,A1);
++    cx.arc(x,y,Math.max(1,R-th1),A1,A0,true);cx.closePath();cx.fill();
+   }
+ }
+ 
+ function featherSweep(f,u){
+-  const N=32,r=f.R,ha=f.ha,outer=f.col||'190,120,255';
++  // A single radial gradient replaces 32 overlapping translucent sectors.
++  // Damage cones and hit detection remain unchanged; only pixels are cheaper.
++  const r=f.R,ha=f.ha,outer=f.col||'190,120,255',fade=Math.max(0,1-u);
++  if(fade<=0)return;
+   cx.save();cx.translate(f.x,f.y);cx.scale(1,YR);
+   const g=cx.createRadialGradient(0,0,r*.14,0,0,r);
+-  g.addColorStop(0,'rgba('+outer+',.15)');g.addColorStop(.50,'rgba('+outer+',.36)');
+-  g.addColorStop(.77,'rgba('+outer+',.19)');g.addColorStop(1,'rgba('+outer+',0)');
+-  for(let i=0;i<N;i++){
+-    const v=(i+.5)/N,soft=Math.pow(Math.sin(Math.PI*v),.8)*(1-u);
+-    cx.globalAlpha=soft;cx.fillStyle=g;cx.beginPath();cx.moveTo(0,0);
+-    cx.arc(0,0,r,f.a-ha+ha*2*i/N-.002,f.a-ha+ha*2*(i+1)/N+.002);cx.closePath();cx.fill();
+-  }cx.restore();
+-}
++  g.addColorStop(0,'rgba('+outer+',.15)');
++  g.addColorStop(.50,'rgba('+outer+',.36)');
++  g.addColorStop(.77,'rgba('+outer+',.19)');
++  g.addColorStop(1,'rgba('+outer+',0)');
++  cx.globalAlpha=fade*.9;cx.fillStyle=g;
++  cx.beginPath();cx.moveTo(0,0);cx.arc(0,0,r,f.a-ha,f.a+ha);
++  cx.closePath();cx.fill();
++  cx.restore();
++}
++
+ function featherRing(f,u){
+   const r=f.R*easeOut(u),col=f.col||'255,160,235';
+   cx.save();cx.translate(f.x,f.y+34);cx.scale(1,.55);cx.globalCompositeOperation='lighter';
+@@ -3646,12 +3736,14 @@
+       cx.beginPath();cx.arc(f.x,f.y,Math.max(0,f.R-5),a0,a1);cx.strokeStyle='rgba(255,236,244,'+(.82*fade)+')';cx.lineWidth=3;cx.stroke();
+       cx.restore();
+     }else if(f.k==='slash'){
+-      cx.save();cx.shadowBlur=17;cx.shadowColor='rgba(255,216,251,.65)';cx.globalAlpha=.72;
+-      const sweep=Math.min(1,f.t/.12),fadeA=f.t<.12?1:1-(f.t-.12)/(f.life-.12);
++      // Avoid shadowBlur with layered arc segments: Android WebView may fall back
++      // to an expensive software blur on every sword hit.
++      cx.save();cx.globalAlpha=.82;
++      const sweep=Math.min(1,f.t/.12),fadeA=f.t<.12?1:Math.max(0,1-(f.t-.12)/(f.life-.12));
+       const half=f.small?.7:1.15,a0=f.a-half,a1=f.a+half;
+-      // 바깥 번짐 + 안쪽 흰 날
+-      arcBand(f.x,f.y,a0,a1,f.R,f.R*(f.small?.3:.36),easeOut(sweep),.55*fadeA,1.6);
+-      arcBand(f.x,f.y,a0,a1,f.R-4,f.R*(f.small?.12:.16),easeOut(sweep),.77*fadeA,2.2);cx.restore();
++      arcBand(f.x,f.y,a0,a1,f.R,f.R*(f.small?.3:.36),easeOut(sweep),.54*fadeA,1.6);
++      arcBand(f.x,f.y,a0,a1,f.R-4,f.R*(f.small?.12:.16),easeOut(sweep),.8*fadeA,2.2);
++      cx.restore();
+     }else if(f.k==='whip'){
+       cx.save(); // GPU-friendly: no shadow blur
+       const ext=easeOut(Math.min(1,f.t/.09)),fadeA=f.t<.1?1:1-(f.t-.1)/(f.life-.1),L=Math.max(0,Math.min(f.L,REACH.whip)-6)*ext;
+@@ -3825,6 +3917,8 @@
+     };
+     const name=(w==='whip'?'⚡ ':w==='fan'?'✦ ':'')+labels[w][move];
+     pops.push({x:P.x,y:P.y-CH*2.15,t:0,txt:name,col:w==='whip'?'#91edff':w==='fan'?'#e2aeff':'#ffe29d',size:17,vy:-38});
++    const voiceNum={arc:1,pierce:2,spin:3,slam:4,rocks:5,dashLight:6,dashHeavy:7}[move];
++    if(voiceNum)CM_AUDIO.playVoice('skill_'+w+'_0'+voiceNum,1);
+   }
+   return true;
+ }
+@@ -3845,7 +3939,7 @@
+   }
+ }
+ function comboAttackDuration(){
+-  const base=P.cbMove==='spin'?2.24:P.cbMove==='pierce'?.84:P.cbMove==='dashLight'?.76:P.cbMove==='rocks'?.96:P.cbAction==='light'?.38:.54;
++  const base=P.cbMove==='spin'?2.24:P.cbMove==='pierce'?.84:P.cbMove==='dashLight'?.76:P.cbMove==='rocks'?.96:P.cbAction==='light'?.45:.62;
+   /* 장비 공속 배율은 나중에 추가해도 콤보 입력 판정과 독립적이다. */
+   const rate=Math.max(.5,Math.min(2.5,Number(ST.attackSpeed)||1));
+   return base/rate;
+@@ -3859,7 +3953,7 @@
+   hitMob(m,stat.atk()*power*(w==='fan'?.78:w==='whip'?.85:1),w,kb,ang);
+   if(!m.dead&&!m.boss&&stun)m.stun=Math.max(m.stun,stun);
+ }
+-/* 채찍은 원거리 전격 발사체가 아닌 초선 주변의 물리적인 휘두르기 궤적을 쓴다. */
++/* 채찍은 원거리 전격을 발사하지 않는다. 기존 기술명·타격 범위는 유지. */
+ function comboStrike(move,part){
+   const w=P.cbWeapon||ST.wt,a=P.cbAngle||0,px=P.x,py=P.y,ct=Math.cos(a),st=Math.sin(a),list=liveMobs();
+   const radial=move==='spin'||move==='slam'||move==='rocks'||move==='dashHeavy';
+@@ -3882,11 +3976,14 @@
+     const fits=radial?within:move==='arc'?within&&delta<1.20:move==='dashLight'?within&&delta<.95:dot>0&&within&&delta<.58;
+     if(!fits)continue;
+     comboDamage(m,power,kb,da,move==='slam'?.9:move==='rocks'?1.2:move==='dashHeavy'?.4:w==='whip'?.45:0);
++    /* 채찍은 근접 타격 궤적만 표시한다. */
+   }
+   if(move==='rocks')for(let i=0;i<19;i++){
+     const q=i*Math.PI*2/19;
+     fx.push({k:'deb',x:px+Math.cos(q)*rnd(10,60),y:py-18,vx:Math.cos(q)*rnd(90,330),vy:-rnd(120,380),t:0,life:rnd(.38,.7)});
+-  }
++    /* 채찍은 근접 타격 궤적만 표시한다. */
++  }
++  /* 채찍은 근접 타격 궤적만 표시한다. */
+   if(w==='fan')fx.push({k:'ring',x:px,y:py-25,t:0,life:.3,R:radius*.6});
+   shake=Math.max(shake,move==='rocks'?10:move==='slam'?7:move==='dashHeavy'?5:3);
+ }
+@@ -3898,6 +3995,7 @@
+     for(const m of liveMobs()){
+       if(P.cbRushHit.has(m)||Math.hypot(m.x-P.x,m.y-P.y)>(P.cbWeapon==='whip'?Math.min(REACH.whip,100+m.scale*15):100+m.scale*15))continue;
+       P.cbRushHit.add(m);comboDamage(m,2.1,320,Math.atan2(m.y-P.y,m.x-P.x),P.cbWeapon==='whip'?.6:0);
++      /* 채찍은 근접 타격 궤적만 표시한다. */
+     }
+   }else if(move==='dashLight'){
+     const thresholds=[.23,.47,.71];
+@@ -3932,6 +4030,7 @@
+       at:i*.18,fall:.29+i%3*.025,done:false,last:i===14,size:i===14?128:rnd(63,88),rot:rnd(-.35,.35)};
+   });
+   CM_AUDIO.play('spin');
++  CM_AUDIO.playVoice('skill_musou_01',1);
+   return true;
+ }
+ 
+@@ -4147,6 +4246,33 @@
+   charge:['여왕님의 터치야, 감사히 받아!','어딜 보는 거야, 이 변태들아!','좀 더 끈적하게 놀아보자구!'],
+   ult:['아낌없이 쥐어짜 줄게! 한 방울도 남김없이 가버려라!']};
+ 
++
++/* Recorded voice filenames are derived from original story and map dialogue. */
++const CHOSEON_VOICE_BY_TEXT=(()=>{
++  const out=new Map(),pad=n=>String(n).padStart(2,'0');
++  for(const stage of STG){
++    let n=0;
++    for(const line of (stage.lines||[]))if(line.w==='choseon'){
++      ++n;out.set(line.t,'stage_'+pad(stage.n)+'_'+pad(n));
++    }
++  }
++  for(const [area,lines] of Object.entries(KAN_TALK)){
++    let n=0;
++    for(const line of lines)if(line[0]==='choseon'){
++      ++n;out.set(line[1],'map_'+area+'_'+pad(n));
++    }
++  }
++  for(const [stage,spots] of Object.entries(KAN_SPECIAL)){
++    let n=0;
++    for(const p of Object.keys(spots).sort((a,b)=>+a-(+b))){
++      for(const line of spots[p])if(line[0]==='choseon'){
++        ++n;out.set(line[1],'event_'+pad(stage)+'_'+pad(n));
++      }
++    }
++  }
++  return out;
++})();
++
+ function initHeroMT(){
+   for(const id of HERO_IDS){
+     if(MT[id])continue;
+@@ -4205,7 +4331,7 @@
+       <div class="L tlogo"></div><div class="L tshine"></div>
+       <button class="tb go" id="tb_go" data-a="tgo" style="left:49px;top:468px;width:572px;height:126px;background-image:url(a/ui/t_btn_go.webp)"></button>
+       <button class="tb" id="tb_1" data-a="tcont" style="left:53px;top:588px;width:574px;height:127px;background-image:url(a/ui/t_btn_1.webp)">이어하기</button>
+-      <button class="tb" id="tb_2" disabled style="left:53px;top:683px;width:574px;height:127px;background-image:url(a/ui/t_btn_2.webp)">설 정</button>
++      <button class="tb" id="tb_2" data-a="cloudmenu" style="left:53px;top:683px;width:574px;height:127px;background-image:url(a/ui/t_btn_2.webp)">설 정</button>
+       <button class="tb" id="tb_3" disabled style="left:53px;top:778px;width:574px;height:127px;background-image:url(a/ui/t_btn_3.webp)">종 료</button>
+       <canvas id="tpet" width="1672" height="941"></canvas>`;
+     startPetals();
+@@ -4214,6 +4340,16 @@
+   $('tb_go').textContent=UI.resetAsk?'정말 처음부터?':'게임 시작';
+   $('tb_go').classList.toggle('ask',!!UI.resetAsk);
+   $('tb_1').disabled=!hp;
++  const oldCloud=g.querySelector('#cloudPanel');if(oldCloud)oldCloud.remove();
++  if(UI.cloudMenu){
++    g.insertAdjacentHTML('beforeend',`<div class="pn sm" id="cloudPanel" style="left:630px;top:230px;width:770px;height:550px;z-index:8"><div class="in">
++      <div class="tt" style="position:absolute;top:38px;left:40px;font-size:43px;color:#fff4d6">저장 · 업데이트</div>
++      <div class="ln" style="left:40px;top:104px;width:680px;font-size:25px">새 게임 코드는 다음 실행 때 자동 확인합니다.<br>Drive 파일을 연결하면 앱 시작·복귀 때 비교 동기화합니다.</div>
++      <button class="bt gold" data-a="drivebackup" style="left:50px;top:220px;width:310px;height:88px;font-size:29px">Drive 파일 연결</button>
++      <button class="bt" data-a="driverestore" style="left:405px;top:220px;width:310px;height:88px;font-size:29px">지금 동기화</button>
++      <button class="bt" data-a="cloudclose" style="left:205px;top:365px;width:340px;height:94px;font-size:29px">닫기</button>
++    </div></div>`);
++  }
+ }
+ /* 벚꽃잎과 반짝임 (시작 화면이 보일 때만 그린다) */
+ function startPetals(){
+@@ -4391,6 +4527,8 @@
+   if(!nr&&L.w!=='choseon'&&L.w!==dl.right){ // 오른쪽 인물 교체
+     dl.right=L.w;$('dlR').innerHTML=L.w==='npc'?pickFrame('',{cls:'big',img:'ic_hero',sz:'50%',style:'position:absolute;left:0;top:0'}):pickFrame(L.w,{cls:'big',style:'position:absolute;left:0;top:0'});
+   }
++  if(!nr&&L.w==='choseon'){const id=CHOSEON_VOICE_BY_TEXT.get(L.t);if(id)CM_AUDIO.playVoice(id,3);}
++  else if(!nr)CM_AUDIO.stopVoice();
+   if(nr){nm.style.visibility='hidden';tx.className='nr';}
+   else{
+     nm.style.visibility='visible';tx.className='';
+@@ -4415,7 +4553,7 @@
+   if(dl.typing){dl.typing=false;dl.shown=dl.plain.length;$('dtx').innerHTML=dl.note+dl.plain.replace(/</g,'&lt;');$('dnx').style.visibility='visible';}
+   else dlgNext();
+ }
+-function dlgEnd(){const dl=UI.dlg;UI.dlg=null;if(dl&&dl.raf)cancelAnimationFrame(dl.raf);if(dl&&dl.done)dl.done();}
++function dlgEnd(){CM_AUDIO.stopVoice();const dl=UI.dlg;UI.dlg=null;if(dl&&dl.raf)cancelAnimationFrame(dl.raf);if(dl&&dl.done)dl.done();}
+ 
+ /* ── 결과 ── */
+ function showResult(r){
+@@ -4472,9 +4610,11 @@
+ function pauseGame(on){
+   if(UI.mode!=='battle')return;
+   UI.paused=on;$('s_pz').hidden=!on;
+-  if(on){$('g_pz').innerHTML=`<div class="pn sm" style="left:520px;top:300px;width:560px;height:400px"><div class="in"><div class="f1" style="position:absolute;left:0;right:0;top:44px;text-align:center;font:400 54px var(--f1);color:#fff3cf">일시정지</div>
+-    <button class="bt gold" data-a="resume" style="left:100px;top:140px;width:360px;height:100px;font-size:36px">계 속</button>
+-    <button class="bt" data-a="retreat" style="left:100px;top:260px;width:360px;height:100px;font-size:36px">철 수</button></div></div>`;fitUI();}
++  if(on){$('g_pz').innerHTML=`<div class="pn sm" style="left:520px;top:210px;width:560px;height:575px"><div class="in"><div class="f1" style="position:absolute;left:0;right:0;top:44px;text-align:center;font:400 54px var(--f1);color:#fff3cf">일시정지</div>
++    <button class="bt gold" data-a="resume" style="left:100px;top:115px;width:360px;height:84px;font-size:33px">계 속</button>
++    <button class="bt" data-a="retreat" style="left:100px;top:213px;width:360px;height:84px;font-size:33px">철 수</button>
++    <button class="bt" data-a="drivebackup" style="left:100px;top:311px;width:360px;height:84px;font-size:29px">Drive 저장</button>
++    <button class="bt" data-a="driverestore" style="left:100px;top:409px;width:360px;height:84px;font-size:29px">Drive 불러오기</button></div></div>`;fitUI();}
+ }
+ function bark(kind){
+   if(!P||UI.mode!=='battle')return;
+@@ -4483,12 +4623,17 @@
+   if(bark.t&&now-bark.t<gap)return;
+   if(kind==='combo'&&Math.random()<.5)return;
+   bark.t=now;
+-  const a=BARK[kind],l=a[Math.floor(Math.random()*a.length)];
++  const a=BARK[kind],i=Math.floor(Math.random()*a.length),l=a[i];
+   pops.push({x:P.x,y:P.y-CH*3.1,t:0,txt:l,col:'#ffd0ee',size:kind==='ult'?24:19,vy:-18,life:1.9});
++  CM_AUDIO.playVoice('battle_'+(kind==='ult'?'ultimate':kind)+'_0'+(i+1),2);
+ }
+ 
+ /* ── 동작 ── */
+ const ACT={
++  cloudmenu(){UI.cloudMenu=!UI.cloudMenu;renderTitle();},
++  cloudclose(){UI.cloudMenu=false;renderTitle();},
++  drivebackup(){if(window.ChoseonCloud)window.ChoseonCloud.backup();},
++  driverestore(){if(window.ChoseonCloud)window.ChoseonCloud.restore();},
+   go(){showScreen('bar');},
+   tgo(){if(!hasProg()){showScreen('bar');return;}ACT.reset();},tcont(){if(hasProg())showScreen('bar');},
+   reset(){if(!UI.resetAsk){UI.resetAsk=true;renderTitle();setTimeout(()=>{if(UI.resetAsk){UI.resetAsk=false;if(UI.mode==='title')renderTitle();}},6000);}else{window.__noSave=1;try{localStorage.removeItem(SAVEKEY);}catch(e){}try{localStorage.clear();}catch(e){}location.reload();}},
+@@ -4607,7 +4752,6 @@
+   }catch(e){$('load').textContent='오류: '+e.message;console.error(e);}
+ })();
+ </script>
+-
+ <script>
+ /* Choseon: ARPG-standard Drive SAF sync; always compare baseT, never timestamps. */
+ (function(){

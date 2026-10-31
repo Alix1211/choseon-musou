@@ -96,10 +96,10 @@ function comboDamage(m,power,kb,ang,stun){
 function comboStrike(move,part){
   const w=P.cbWeapon||ST.wt,a=P.cbAngle||0,px=P.x,py=P.y,ct=Math.cos(a),st=Math.sin(a),list=liveMobs();
   const radial=move==='spin'||move==='slam'||move==='rocks'||move==='dashHeavy';
-  const radius=move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='whip'?258:w==='fan'?440:240;
+  const radius=w==='whip'?REACH.whip:move==='spin'?285:move==='rocks'?340:move==='slam'?218:move==='dashHeavy'?160:move==='dashLight'?165:w==='fan'?440:240;
   const power=move==='spin'?.67:move==='rocks'?2.3:move==='slam'?1.7:move==='dashHeavy'?1.05:move==='dashLight'?.65:move==='arc'?1.7:1.8;
   const kb=move==='dashHeavy'?470:move==='slam'||move==='rocks'?390:move==='spin'?240:move==='dashLight'?135:225;
-  if(w==='whip')fx.push({k:'whipSweep',x:px,y:py-CH*.3,t:0,life:.30,R:radius,a,radial,ha:move==='arc'?1.18:.78});
+  if(w==='whip')fx.push({k:'whipSweep',x:px,y:py,t:0,life:.30,R:radius,a,radial,ha:move==='arc'?1.18:.78});
   else fx.push({k:radial?'shock':'sweep',x:px,y:radial?py:py-CH*.3,t:0,life:.32,R:radius,a,ha:move==='arc'?1.18:.54,col:w==='fan'?'170,105,255':'255,205,110',col2:'255,255,255',small:move==='dashHeavy'});
   if(w==='fan'&&(move==='arc'||move==='dashLight')){
     const count=move==='arc'?5:3;
@@ -111,7 +111,8 @@ function comboStrike(move,part){
   for(const m of list){
     const dx=m.x-px,dy=m.y-py,d=Math.hypot(dx,dy),da=Math.atan2(dy,dx),dot=dx*ct+dy*st;
     let delta=Math.abs(da-a);if(delta>Math.PI)delta=2*Math.PI-delta;
-    const fits=radial?d<radius+m.scale*12:move==='arc'?d<radius+m.scale*12&&delta<1.20:move==='dashLight'?d<radius+m.scale*12&&delta<.95:dot>0&&d<radius+m.scale*12&&delta<.58;
+    const within=d<=(w==='whip'?radius:radius+m.scale*12);
+    const fits=radial?within:move==='arc'?within&&delta<1.20:move==='dashLight'?within&&delta<.95:dot>0&&within&&delta<.58;
     if(!fits)continue;
     comboDamage(m,power,kb,da,move==='slam'?.9:move==='rocks'?1.2:move==='dashHeavy'?.4:w==='whip'?.45:0);
   }
@@ -128,7 +129,7 @@ function comboMoveTick(dt,prev,frame,total){
     const d=P.cbDir,u=frame/total;
     if(u<.88){moveEnt(P,d.x*650*dt,d.y*650*dt,18);fx.push({k:'sp2',x:P.x,y:P.y-CH,vx:-d.x*60,vy:-90,t:0,life:.23});}
     for(const m of liveMobs()){
-      if(P.cbRushHit.has(m)||Math.hypot(m.x-P.x,m.y-P.y)>100+m.scale*15)continue;
+      if(P.cbRushHit.has(m)||Math.hypot(m.x-P.x,m.y-P.y)>(P.cbWeapon==='whip'?Math.min(REACH.whip,100+m.scale*15):100+m.scale*15))continue;
       P.cbRushHit.add(m);comboDamage(m,2.1,320,Math.atan2(m.y-P.y,m.x-P.x),P.cbWeapon==='whip'?.6:0);
     }
   }else if(move==='dashLight'){

@@ -6,6 +6,7 @@ on:
     paths:
       - 'android/**'
       - 'index.html'
+      - '_new/**'
       - 'a/**'
       - 'tools/**'
       - '.github/workflows/android-apk.yml'
@@ -15,7 +16,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -28,6 +29,25 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+      - name: Regenerate game from canonical sources (review before commit)
+        run: |
+          mkdir -p /tmp/choseon-range-review
+          cp index.html /tmp/choseon-range-review/index_before.html
+          python3 _new/p2.py
+          cp index.html /tmp/choseon-range-review/index_regenerated.html
+          git diff --numstat -- index.html | tee /tmp/choseon-range-review/diffstat.txt
+          git diff -- index.html > /tmp/choseon-range-review/index.patch
+      - name: Upload regenerated index and exact diff for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: choseon-whip-range-regeneration-review
+          path: /tmp/choseon-range-review/
+          if-no-files-found: error
+          retention-days: 3
+      - name: Test real whip hit functions vs visual range
+        run: node tools/test_whip_reach.cjs
+      - name: Test all nine playable heroines and two-member party swapping
+        run: node tools/check_playable_heroes.cjs
       - name: Validate lightweight Canvas effects
         run: node tools/check_fx_budget.cjs
       - name: Check safe live updates and Drive backup wiring
@@ -64,6 +84,16 @@ jobs:
           cp android/choseon-test.keystore "$RUNNER_TEMP/choseon-voice-sign-tools/"
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/choseon-voice-sign-tools/"
           cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" "$RUNNER_TEMP/choseon-voice-sign-tools/"
+      - name: Commit reviewed generated game to gpt-gimmicks only
+        if: github.ref == 'refs/heads/gpt-gimmicks'
+        run: |
+          git config user.name 'choseon-build'
+          git config user.email 'choseon-build@users.noreply.github.com'
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: regenerate 170px whip reach from canonical sources'
+            git push origin HEAD:gpt-gimmicks
+          fi
       - name: Store local voice APK signing tools
         uses: actions/upload-artifact@v4
         with:

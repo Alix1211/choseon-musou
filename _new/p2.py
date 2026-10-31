@@ -76,4 +76,22 @@ if not os.environ.get('NOD'):exec(open(B+'_new/p2ui_v04.py',encoding='utf-8').re
 if not os.environ.get('NOD'):exec(open(B+'_new/p2whip.py',encoding='utf-8').read())
 if not os.environ.get('NOD'):exec(open(B+'_new/p2sync.py',encoding='utf-8').read())
 open(B+'index.html','w',encoding='utf-8').write(src)
+# Preserve previously approved HUD, performance, voice, and Drive changes.
+# This source-controlled overlay applies after the legacy generator's stages.
+# A mismatch FAILS the build instead of silently reverting those features.
+if not os.environ.get('NOD'):
+    import subprocess
+    r=subprocess.run(['patch','--batch','--forward','--reject-file=-','-p1',
+                      '-d', B, '-i', B+'_new/approved_runtime_overrides.patch'],
+                     capture_output=True,text=True)
+    assert r.returncode==0, ('approved runtime overlay failed',r.stdout,r.stderr)
+    src=open(B+'index.html',encoding='utf-8').read()
+    # Apply balance after the approved overlay, which anchors older runtime text.
+    exec(open(B+'_new/p2balance.py',encoding='utf-8').read())
+    exec(open(B+'_new/p2combat_timing.py',encoding='utf-8').read())
+    exec(open(B+'_new/p2settings.py',encoding='utf-8').read())
+    exec(open(B+'_new/p2playable.py',encoding='utf-8').read())
+    exec(open(B+'_new/p2enemy_pressure.py',encoding='utf-8').read())
+    open(B+'index.html','w',encoding='utf-8').write(src)
+
 print('ok',len(src))

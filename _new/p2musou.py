@@ -2,7 +2,7 @@
 # 수동 콤보 엔진보다 뒤에 선언. 클릭/게임 로직/기존 이벤트 순서는 보존한다.
 rep('/* ───────── 수동 조작 입력 ───────── */',rd('m3_musou.js')+'\n/* ───────── 수동 조작 입력 ───────── */')
 rep('  if(CB.pending)return false;', '  if(ULT.active||CB.pending)return false;')
-rep('const REACH={sword:146,whip:306,fan:600};','const REACH={sword:146,whip:205,fan:600};')
+rep('const REACH={sword:146,whip:306,fan:600};','const REACH={sword:146,whip:170,fan:600};')
 rep('const IDEAL={sword:80,whip:190,fan:330};','const IDEAL={sword:80,whip:142,fan:330};')
 rep('m:.85*mm','m:.75*mm')
 rep('  m.dead=true;m.deadT=0;S.kills++;if(P)P.nk=0;',
@@ -62,8 +62,7 @@ rep("    }else if(f.k==='whip'){\n      const ext=",
     "    }else if(f.k==='whip'){\n      cx.save();cx.shadowBlur=12;cx.shadowColor='rgba(255,145,218,.7)';\n      const ext=")
 rep("      const tp=pts[20];glow(tp[0],tp[1],26*fadeA+4,'rgba(255,255,255,'+.9*fadeA+')','rgba(255,90,170,0)');",
     "      const tp=pts[20];glow(tp[0],tp[1],26*fadeA+4,'rgba(255,255,255,'+.7*fadeA+')','rgba(255,90,170,0)');cx.restore();")
-rep("      const al=1-u;cx.save();cx.lineCap='round';",
-    "      const al=1-u;cx.save();cx.lineCap='round';cx.shadowBlur=13;cx.shadowColor='rgba(95,193,255,.74)';")
+# Ranged bolt rendering was removed with melee-only whip; do not reintroduce it.
 
 css=r"""
 /* 이번 패치: 강/약공격 좌우 변경, 작은 무쌍, 동료 버튼 분리. */

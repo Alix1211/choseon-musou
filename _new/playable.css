@@ -1,0 +1,11 @@
+#tl{position:relative;padding-left:72px;min-height:68px}
+#playerPortrait{position:absolute;left:-4px;top:-4px;width:70px;height:70px;border:0;padding:0;background:transparent;pointer-events:auto;cursor:pointer}
+#playerPortrait img,#allySwap img{position:absolute;inset:12%;width:76%;height:76%;object-fit:cover;object-position:center 20%;border-radius:50%;background:#30243b}
+#playerPortrait i,#allySwap i{position:absolute;inset:0;background:url(a/ui/player_portrait_frame.webp) center/100% 100% no-repeat;pointer-events:none}
+#allySwap{position:fixed;right:calc(max(16px,env(safe-area-inset-right,0px)) + 61px);bottom:calc(var(--barh,64px) + 128px + env(safe-area-inset-bottom,0px));width:48px;height:48px;padding:0;border:0;background:transparent;z-index:5;cursor:pointer;touch-action:manipulation}
+#allySwap:disabled{filter:grayscale(1) brightness(.55)}
+#allySwap:not(:disabled):active,#playerPortrait:active{transform:scale(.94)}
+.nb #allySwap,.nb #playerPortrait{display:none!important}
+#hpw,#spw{width:min(240px,calc(50vw - 80px))}
+#xpw{max-width:min(240px,calc(50vw - 80px))}
+@media(max-width:520px){#tl{padding-left:60px}#playerPortrait{width:60px;height:60px}#hpw,#spw{width:calc(52vw - 70px)}}
