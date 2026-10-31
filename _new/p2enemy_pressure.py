@@ -7,7 +7,7 @@ rep('atk:4*t.atk*ka*(elite?1.5:1)', 'atk:7*t.atk*ka*(elite?1.5:1)')
 rep('P.hp=Math.min(stat.maxHp(),P.hp+stat.maxHp()*.01*dt);',
     'P.hp=Math.min(stat.maxHp(),P.hp+stat.maxHp()*(ST.regen/100)*dt);')
 rep('stat.maxHp()*(.004+ST.regen/100)*dt','stat.maxHp()*(ST.regen/100)*dt')
-# A ground footprint supplies thickness. The existing warning shape stays visible.
+# A ground footprint supplies thickness independently of the hidden preview.
 a=src.index('function inZone(z,px,py){');b=src.index('function debris(',a)
 src=src[:a]+"function inZone(z,px,py){return enemyContains(z,px,py);}\n"+src[b:]
 rep('const z=zones[i];z.t+=dt;',
@@ -26,6 +26,9 @@ rep('b.cd-=dt;b.cdA-=dt;b.cdB-=dt;b.cdR-=dt;b.t+=dt;',
     'b.cd-=dt*1.35;b.cdA-=dt*1.35;b.cdB-=dt*1.35;b.cdR-=dt*1.35;b.t+=dt;')
 rep('function bossMove(m,vx,vy,sp,dt){const l=Math.hypot(vx,vy)||1;moveEnt(m,vx/l*sp*dt,vy/l*sp*dt,18);m.moving=true;}',
     'function bossMove(m,vx,vy,sp,dt){const l=Math.hypot(vx,vy)||1,speed=Math.max(sp,S.diff===0?145:195);chaseMove(m,{x:m.x+vx/l*200,y:m.y+vy/l*200},speed*dt,dt);m.moving=true;}')
-rep('function drawZones(){','function drawZones(){\n  drawEnemyIntents();')
+# Hide every enemy ground preview (melee, ranged magic and boss areas).
+# Keep zones/updateZones, projectiles and actual impact effects unchanged.
+a=src.index('function drawZones(){');b=src.index('function drawWards(){',a)
+src=src[:a]+'function drawZones(){}\n'+src[b:]
 rep('switchPlayable,playableStats,combatWeapon,PLAY,genKan,',
     'switchPlayable,playableStats,combatWeapon,PLAY,ENEMY_PROFILES,ENEMY_PRESSURE,enemyContains,enemyStart,enemyArmored,updateMob,updateZones,updateShots,updateAllies,enemyHit,enemyChargeTick,createMob,hitMob,updatePlayer,comboPress,shots,zones,genKan,')
