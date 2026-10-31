@@ -560,6 +560,7 @@ async function loadAll(){
   const [man,mj,tj,pj,ij,fj]=await Promise.all([J('a/choseon.json'),J('a/mobs.json'),J('a/tiles.json'),J('a/props.json'),J('a/items.json'),J('a/food.json')]);
   A.fj=fj;A.man=man;A.mj=mj;A.tj=tj;A.pj=pj;A.ij=ij;A.sheets={};A.walk={};A.heroAttack={};
   const jobs=[];
+  magicQueueImages();
   loadStage40Image('a/stage40/npc27_walk.webp').then(im=>A.final40Walk=im);
   loadStage40Image('a/stage40/npc27_giant.png').then(im=>A.final40Giant=im);
   loadStage40Image('a/stage40/cliff.jpg').then(im=>A.final40Cliff=im);
@@ -870,11 +871,104 @@ function buildStage(n){
 function newPlayer(){return {x:0,y:0,hp:stat.maxHp(),idleT:0,reposT:0,side:1,spinReq:false,face:'down',mode:'tele_in',tt:0,atk:null,atkT:0,moveT:0,state:'idle',spinCd:3,target:null,hitDone:false,alpha:1,stretch:1,reviveT:0,regen:0,slowT:0,kx:0,ky:0,ovT:99,skCd:[0,0],skReq:[0,0],sk:null,skHit:null};}
 
 /* ───────── 몹 ───────── */
+/* Rare ranged magic troops. Existing soldiers, stage objectives and saves remain unchanged. */
+const MAGIC_TROOPS={
+  mage_wei:{walk:'a/magic_soldiers/wei_rogue_monk_walk_3dir_4f.webp',attack:'a/magic_soldiers/wei_rogue_monk_attack_3dir_3f.webp'},
+  mage_shu:{walk:'a/magic_soldiers/shu_priestess_walk_3dir_4f.webp',attack:'a/magic_soldiers/shu_priestess_attack_3dir_3f.webp'},
+  mage_wu:{walk:'a/magic_soldiers/wu_hex_caster_walk_3dir_4f.webp',attack:'a/magic_soldiers/wu_hex_caster_attack_3dir_3f.webp'}
+};
+// Rare: one substitution in section 2, and a second later in longer episodes.
+// Each mage can cast multiple spell elements; elemental order varies by stage.
+const MAGIC_FACTION={'0':'mage_wei','1':'mage_shu','2':'mage_wu'};
+const MAGIC_ELEMENTS={mage_wei:['ice','lightning'],mage_shu:['wind','ice','lightning'],mage_wu:['fire','lightning','wind']};
+function magicRecruit(col){
+  const m=M;
+  if(!m||m.n<=1||!(m.idx===1||(m.idx===3&&m.n>=11))||m.magicRecruited||
+     !col||!col.mobs.length||!A.magicWalk||!A.magicAttack)return;
+  const set=col.mobs[0].set,type=MAGIC_FACTION[set];
+  if(!type||!A.magicWalk[type]||!A.magicAttack[type])return;
+  let i=col.mobs.findIndex(v=>!v.leader&&!v.elite&&v.type==='bow');
+  if(i<0)i=col.mobs.findIndex(v=>!v.leader&&!v.elite&&['spear','cav'].includes(v.type));
+  if(i<0)return;
+  const old=col.mobs[i],mage=createMob(type,set,old.x,old.y,col,false);
+  const elements=MAGIC_ELEMENTS[type];
+  mage.magicUnit=true;mage.magicElement=elements[(m.n+Math.floor(m.idx/2))%elements.length];mage.face=old.face;
+  col.mobs[i]=mage;m.magicRecruited=true;
+}
+async function magicLoadImage(path){
+  // New APKs load their bundled asset; old APKs may fetch only the new game HTML.
+  try{return await stage40Timed(loadImg(path),2200);}catch(error){}
+  const url='https://raw.githubusercontent.com/Alix1211/choseon-musou/mobile-live/'+path;
+  let controller;
+  try{
+    controller=new AbortController();const timer=setTimeout(()=>controller.abort(),9000);
+    let res;
+    try{res=await fetch(url,{signal:controller.signal,cache:'no-store'});}finally{clearTimeout(timer);}
+    if(!res.ok)throw Error('HTTP '+res.status);
+    const blob=await res.blob(),objectUrl=URL.createObjectURL(blob);
+    try{return await stage40Timed(loadImg(objectUrl),5000);}finally{URL.revokeObjectURL(objectUrl);}
+  }catch(error){console.warn('Magic sprite unavailable: '+path,error);return null;}
+}
+function magicQueueImages(){
+  A.magicWalk={};A.magicAttack={};
+  // These optional art downloads do NOT hold the main loading bar at 94%.
+  for(const id in MAGIC_TROOPS){
+    const d=MAGIC_TROOPS[id];
+    magicLoadImage(d.walk).then(im=>{if(im)A.magicWalk[id]=im;});
+    magicLoadImage(d.attack).then(im=>{if(im)A.magicAttack[id]=im;});
+  }
+}
+function drawMagicMob(m){
+  if(m.wuHidden||(m.col&&m.col.weiHidden))return;
+  const dk=dirKey(m.face),dir=dk[0],flip=dk[1];
+  const attacked=m.intent&&A.magicAttack[m.type],im=attacked||A.magicWalk[m.type];
+  if(!im)return;
+  const cols=attacked?3:4,fw=im.width/cols,fh=im.height/3;
+  const row=attacked?(dir==='side'?0:dir==='front'?1:2):(dir==='front'?0:dir==='side'?1:2);
+  const phase=attacked?1-m.intent.left/Math.max(.01,m.intent.duration):0;
+  const frame=attacked?(phase<.32?0:phase<.75?1:2):(m.moving?Math.floor((time+m.seed)*6.67)%4:0);
+  const alpha=m.dead?Math.max(0,1-m.deadT/.8):m.down?.72:1;
+  const size=mobH(m)*m.scale/342;
+  drawShadow(m.x,m.y,36*m.scale,7*m.scale,.25*alpha);
+  cx.save();cx.translate(m.x,m.y);cx.globalAlpha=alpha;
+  cx.scale((flip?-1:1)*size,size);
+  // The sprite sheets are in strict grid order; crop within each cell.
+  cx.drawImage(im,frame*fw,row*fh,fw,fh,-fw/2,-fh,fw,fh);
+  if(m.hurt>0){cx.globalCompositeOperation='source-atop';cx.fillStyle='rgba(255,255,255,'+(.55*m.hurt/.14)+')';cx.fillRect(-fw/2,-fh,fw,fh);}
+  cx.restore();
+  if(!m.dead&&!m.down&&m.hp<m.maxHp){
+    const w=36,y=m.y-mobH(m)*m.scale-8;
+    cx.fillStyle='rgba(0,0,0,.6)';cx.fillRect(m.x-w/2-1,y-1,w+2,6);
+    cx.fillStyle='#e8456b';cx.fillRect(m.x-w/2,y,w*Math.max(0,m.hp/m.maxHp),4);
+  }
+}
+function drawMagicShot(s){
+  const rgb={ice:[135,217,255],lightning:[175,143,255],wind:[145,255,189],fire:[255,109,54]}[s.magicElement]||[255,255,255];
+  const color=rgb.join(','),ang=Math.atan2(s.vy,s.vx);
+  cx.save();cx.translate(s.x,s.y);cx.rotate(ang);cx.globalCompositeOperation='lighter';
+  glow(0,0,28,'rgba('+color+',.8)','rgba('+color+',0)');
+  cx.strokeStyle='rgba('+color+',.9)';cx.lineWidth=4;cx.lineCap='round';
+  if(s.magicElement==='lightning'){
+    cx.beginPath();cx.moveTo(-18,4);cx.lineTo(-6,-5);cx.lineTo(1,4);cx.lineTo(13,-7);cx.lineTo(23,0);cx.stroke();
+    cx.strokeStyle='#fff';cx.lineWidth=1.8;cx.stroke();
+  }else if(s.magicElement==='wind'){
+    cx.beginPath();cx.arc(0,0,15,-2.5,1.4);cx.stroke();cx.beginPath();cx.arc(-4,0,8,-1.3,2.4);cx.stroke();
+  }else if(s.magicElement==='ice'){
+    cx.fillStyle='#d9f7ff';cx.beginPath();cx.moveTo(20,0);cx.lineTo(-8,-8);cx.lineTo(-15,0);cx.lineTo(-8,8);cx.closePath();cx.fill();
+  }else{
+    cx.fillStyle='#fff1ac';cx.beginPath();cx.moveTo(18,0);cx.lineTo(-7,-7);cx.lineTo(-2,0);cx.lineTo(-7,7);cx.closePath();cx.fill();
+  }
+  cx.restore();
+}
+
 const MT={ // 종류별 능력
   sword:{hp:1.0,atk:1.0,sp:96,reach:54,wind:.32,cd:1.25},
   spear:{vh:140,hp:1.15,atk:1.1,sp:82,reach:96,wind:.40,cd:1.5},
   bow:{vh:140,hp:.7,atk:.9,sp:72,keep:270,range:400,wind:.45,cd:2.0,shot:380},
   magic:{hp:.8,atk:1.35,sp:66,keep:240,range:340,wind:.60,cd:2.6,shot:250},
+  mage_wei:{vh:140,hp:1,atk:1.18,sp:74,wind:.72,name:'위 파계승'},
+  mage_shu:{vh:140,hp:.87,atk:1.12,sp:80,wind:.68,name:'촉 무녀'},
+  mage_wu:{vh:140,hp:.91,atk:1.2,sp:73,wind:.72,name:'오 주술사'},
   egg:{hp:1.0,atk:1.1,sp:80,reach:92,wind:.42,cd:1.5},
   jiangshi:{hp:1.35,atk:1.0,sp:104,reach:58,wind:.30,cd:1.2},
   fox:{hp:.85,atk:1.35,sp:70,keep:250,range:350,wind:.55,cd:2.4,shot:270},
@@ -991,6 +1085,9 @@ const ENEMY_PROFILES={
   slime:{kind:'sweep',speed:205,reach:145,half:1.2,wind:.42,cd:1.15},
   bow:{kind:'arrow',speed:165,reach:700,keep:390,wind:.56,cd:1.65,shot:560},
   magic:{kind:'magic',speed:155,reach:650,keep:400,wind:.78,cd:2.4,shot:350},
+  mage_wei:{kind:'magic',speed:150,reach:580,keep:360,wind:.78,cd:2.75,shot:340},
+  mage_shu:{kind:'magic',speed:160,reach:610,keep:370,wind:.70,cd:2.55,shot:360},
+  mage_wu:{kind:'magic',speed:150,reach:590,keep:370,wind:.76,cd:2.70,shot:345},
   fox:{kind:'magic',speed:170,reach:650,keep:410,wind:.74,cd:2.3,shot:370}
 };
 const ENEMY_PRESSURE={started:0,hits:0};
@@ -1059,13 +1156,13 @@ function enemyFire(m,a){
   if(a.kind==='arrow'||a.kind==='magic'){
     const originY=m.y-48*m.scale;
     const aim=a.aim,aa=Math.atan2(aim.y-CH*.97-originY,aim.x-m.x);
-    const count=a.kind==='magic'||(m.elite&&S.stage>=5)?3:1;
+    const count=m.magicUnit?(m.magicElement==='lightning'?2:1):(a.kind==='magic'||(m.elite&&S.stage>=5)?3:1);
     for(let i=0;i<count;i++){
       const angle=aa+(i-(count-1)/2)*.18;
       shots.push({x:m.x,y:originY,vx:Math.cos(angle)*p.shot,vy:Math.sin(angle)*p.shot,
-        dmg:m.atk*(count===3?.8:1),kind:m.type,t:0,r:a.kind==='magic'?17:10,life:2.4});
+        dmg:m.atk*(count===3?.8:1),kind:m.type,t:0,r:a.kind==='magic'?17:10,life:2.4,magicElement:m.magicUnit?m.magicElement:null,slow:m.magicElement==='ice',hom:m.magicElement==='wind'?.42:0});
     }
-    if(a.kind==='magic')addZone({k:'circle',x:aim.x,y:aim.y,r:100,life:.85,dmg:m.atk*.9,kb:130,fx:'rock',pressureOwner:m});
+    if(a.kind==='magic'&&!m.magicUnit)addZone({k:'circle',x:aim.x,y:aim.y,r:100,life:.85,dmg:m.atk*.9,kb:130,fx:'rock',pressureOwner:m});
   }else{
     const area=enemyArea(m,a);enemyHit(area,m.atk,a.kind==='thrust'?120:160);
     fx.push({k:'sweep',x:m.x,y:m.y,a:a.a,R:a.reach,ha:a.half||.22,t:0,life:.22,col:'255,100,85',small:true});
@@ -2444,6 +2541,7 @@ function mkCol(tx,ty,o){
     }
     if(ok)col.mobs.push(createMob(type,set,x,y,col,false));
   }
+  magicRecruit(col);
   mobs.push(...col.mobs);m.colonies.push(col);return col;
 }
 function nearWalk(g,x,y){ // 가장 가까운 걸을 수 있는 칸
@@ -4717,6 +4815,7 @@ function drawStill(m,bx,by,sx,sy,alpha){
   cx.restore();cx.globalAlpha=1;
 }
 function drawMob(m){
+  if(m.magicUnit){drawMagicMob(m);return;}
   if(m.final40Giant)return;
   if(m.finalNpc27&&final40DrawNpc27(m))return;
   if(m.npcBoss&&!m.wuHidden&&!(m.col&&m.col.weiHidden))npcBossDrawAura(m);
@@ -4964,7 +5063,8 @@ function drawFx(){
   }
   // 적 투사체
   for(const s of shots){
-    if(s.npcColor){const c=s.npcColor.join(',');cx.save();cx.globalCompositeOperation='lighter';glow(s.x,s.y,29,'rgba('+c+',.93)','rgba('+c+',0)');glow(s.x,s.y,10,'rgba(255,255,255,.96)','rgba('+c+',0)');cx.restore();}
+    if(s.magicElement)drawMagicShot(s);
+    else if(s.npcColor){const c=s.npcColor.join(',');cx.save();cx.globalCompositeOperation='lighter';glow(s.x,s.y,29,'rgba('+c+',.93)','rgba('+c+',0)');glow(s.x,s.y,10,'rgba(255,255,255,.96)','rgba('+c+',0)');cx.restore();}
     else if(s.kind==='ghost'){drawGhost(s);}else if(s.kind==='qi'){drawQi(s);}
     else if(s.kind==='bow'){
       const a=Math.atan2(s.vy,s.vx);cx.save();cx.translate(s.x,s.y);cx.rotate(a);cx.fillStyle='#e8d6a4';cx.fillRect(-14,-1.4,24,2.8);cx.fillStyle='#d8dde6';cx.beginPath();cx.moveTo(14,0);cx.lineTo(6,-4);cx.lineTo(6,4);cx.fill();cx.fillStyle='#fff';cx.fillRect(-14,-3,6,6);cx.restore();

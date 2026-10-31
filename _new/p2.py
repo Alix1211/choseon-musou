@@ -102,6 +102,7 @@ if not os.environ.get('NOD'):
     # stopInput is finalized by the later approved overlays; clear queued taps there too.
     rep("CB.pending=null;CB.seq='';CB.last=0;CB.dashUntil=0;CB.dash=null;",
         "CB.pending=null;CB.queued.length=0;CB.seq='';CB.last=0;CB.dashUntil=0;CB.dash=null;")
+    exec(open(B+'_new/p2magic.py',encoding='utf-8').read())
     open(B+'index.html','w',encoding='utf-8').write(src)
 
 print('ok',len(src))
