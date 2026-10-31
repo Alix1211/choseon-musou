@@ -24,7 +24,7 @@ function magicRecruit(col){
 }
 async function magicLoadImage(path){
   // New APKs load their bundled asset; old APKs may fetch only the new game HTML.
-  try{return await stage40Timed(loadImg(path),2200);}catch(error){}
+  try{return magicCompactImage(await stage40Timed(loadImg(path),2200));}catch(error){}
   const url='https://raw.githubusercontent.com/Alix1211/choseon-musou/mobile-live/'+path;
   let controller;
   try{
@@ -33,17 +33,41 @@ async function magicLoadImage(path){
     try{res=await fetch(url,{signal:controller.signal,cache:'no-store'});}finally{clearTimeout(timer);}
     if(!res.ok)throw Error('HTTP '+res.status);
     const blob=await res.blob(),objectUrl=URL.createObjectURL(blob);
-    try{return await stage40Timed(loadImg(objectUrl),5000);}finally{URL.revokeObjectURL(objectUrl);}
+    try{return magicCompactImage(await stage40Timed(loadImg(objectUrl),5000));}finally{URL.revokeObjectURL(objectUrl);}
   }catch(error){console.warn('Magic sprite unavailable: '+path,error);return null;}
 }
-function magicQueueImages(){
-  A.magicWalk={};A.magicAttack={};
-  // These optional art downloads do NOT hold the main loading bar at 94%.
-  for(const id in MAGIC_TROOPS){
-    const d=MAGIC_TROOPS[id];
-    magicLoadImage(d.walk).then(im=>{if(im)A.magicWalk[id]=im;});
-    magicLoadImage(d.attack).then(im=>{if(im)A.magicAttack[id]=im;});
+function magicCompactImage(im){
+  // Atlases are displayed at about 140px per animation frame. Keeping their
+  // full 1448x1086 decode costs ~38MB for six sheets on a small Android tablet.
+  const height=768;if(!im||im.height<=height)return im;
+  const canvas=document.createElement('canvas');
+  canvas.height=height;canvas.width=Math.round(im.width*height/im.height);
+  canvas.getContext('2d').drawImage(im,0,0,canvas.width,canvas.height);
+  return canvas;
+}
+function magicEnsureStage(n){
+  if(!A.magicWalk)return;
+  const wanted=n<=10?['mage_wei']:n<=20?['mage_wu']:n<=30?['mage_shu']:Object.keys(MAGIC_TROOPS);
+  const keep=new Set(wanted);A.magicWanted=keep;
+  // Finished episodes must release unused decoded textures, including on replay.
+  for(const id in MAGIC_TROOPS)if(!keep.has(id)){
+    delete A.magicWalk[id];delete A.magicAttack[id];
   }
+  for(const id of wanted){
+    if(A.magicLoading[id]||(A.magicWalk[id]&&A.magicAttack[id]))continue;
+    const paths=MAGIC_TROOPS[id];
+    A.magicLoading[id]=Promise.all([magicLoadImage(paths.walk),magicLoadImage(paths.attack)])
+      .then(([walk,attack])=>{
+        if(!A.magicWanted.has(id))return;
+        if(walk)A.magicWalk[id]=walk;if(attack)A.magicAttack[id]=attack;
+      }).finally(()=>{delete A.magicLoading[id];});
+  }
+}
+function magicQueueImages(){
+  A.magicWalk={};A.magicAttack={};A.magicLoading={};
+  // Optional artwork never holds the loading bar at 94%. Load only the country
+  // needed for this stage; mixed late episodes may need all three.
+  magicEnsureStage(S.stage);
 }
 function drawMagicMob(m){
   if(m.wuHidden||(m.col&&m.col.weiHidden))return;
@@ -55,7 +79,7 @@ function drawMagicMob(m){
   const phase=attacked?1-m.intent.left/Math.max(.01,m.intent.duration):0;
   const frame=attacked?(phase<.32?0:phase<.75?1:2):(m.moving?Math.floor((time+m.seed)*6.67)%4:0);
   const alpha=m.dead?Math.max(0,1-m.deadT/.8):m.down?.72:1;
-  const size=mobH(m)*m.scale/342;
+  const size=mobH(m)*m.scale/fh;
   drawShadow(m.x,m.y,36*m.scale,7*m.scale,.25*alpha);
   cx.save();cx.translate(m.x,m.y);cx.globalAlpha=alpha;
   cx.scale((flip?-1:1)*size,size);

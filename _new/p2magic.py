@@ -28,3 +28,12 @@ rep("        dmg:m.atk*(count===3?.8:1),kind:m.type,t:0,r:a.kind==='magic'?17:10
     "magicElement:m.magicUnit?m.magicElement:null,slow:m.magicElement==='ice',hom:m.magicElement==='wind'?.42:0});")
 rep("    if(a.kind==='magic')addZone({k:'circle',x:aim.x,y:aim.y,r:100,life:.85,dmg:m.atk*.9,kb:130,fx:'rock',pressureOwner:m});",
     "    if(a.kind==='magic'&&!m.magicUnit)addZone({k:'circle',x:aim.x,y:aim.y,r:100,life:.85,dmg:m.atk*.9,kb:130,fx:'rock',pressureOwner:m});")
+rep("startStage=function(n,d){\n  const id=LORD_FORCED_HERO[n];",
+    "startStage=function(n,d){\n  magicEnsureStage(n);\n  const id=LORD_FORCED_HERO[n];")
+rep("  portrait.querySelector('img').src='a/ui/pt/'+id+'.webp';portrait.title=(HN[id]||'초선')+' · 장비';",
+    "  const portraitImage=portrait.querySelector('img'),portraitSource='a/ui/pt/'+id+'.webp';"
+    "if(portraitImage.getAttribute('src')!==portraitSource)portraitImage.src=portraitSource;"
+    "portrait.title=(HN[id]||'초선')+' · 장비';")
+rep("  swap.hidden=!other;if(other)swap.querySelector('img').src='a/ui/pt/'+other+'.webp';",
+    "  swap.hidden=!other;if(other){const swapImage=swap.querySelector('img'),swapSource='a/ui/pt/'+other+'.webp';"
+    "if(swapImage.getAttribute('src')!==swapSource)swapImage.src=swapSource;}")

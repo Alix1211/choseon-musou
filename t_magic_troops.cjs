@@ -5,8 +5,10 @@ const assert=require('node:assert/strict');
 const source=fs.readFileSync('_new/m3_magic_troops.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 for(const token of ["mage_wei:{vh:140","mage_shu:{vh:140","mage_wu:{vh:140",
-  'magicRecruit(col);','magicQueueImages();','drawMagicMob(m);',
+  'magicRecruit(col);','magicQueueImages();','magicEnsureStage(n);','drawMagicMob(m);',
   'magicElement:m.magicUnit?m.magicElement:null',"m.magicElement==='ice'",'drawMagicShot(s);',
+  'portraitImage.getAttribute(\'src\')!==portraitSource',
+  'swapImage.getAttribute(\'src\')!==swapSource',
   "const SAVEKEY='choseon_musou_v2'",'window.ChoseonCloud='])
   assert(html.includes(token),'generated runtime missing '+token);
 
@@ -37,6 +39,16 @@ assert.equal(scene(22,3,'1').col.mobs[1].type,'mage_shu','second section support
 // Same faction uses multiple elements as episodes progress.
 assert.notEqual(scene(3,1,'0').col.mobs[1].magicElement,scene(4,1,'0').col.mobs[1].magicElement);
 assert.notEqual(scene(11,1,'2').col.mobs[1].magicElement,scene(12,1,'2').col.mobs[1].magicElement);
+{
+ const {c}=scene(10,1,'0');
+ c.document={createElement:()=>({getContext:()=>({drawImage(){}})})};
+ const reduced=c.magicCompactImage({width:1448,height:1086});
+ assert.equal(reduced.width,1024);assert.equal(reduced.height,768);
+ assert((reduced.width*reduced.height)/(1448*1086)<.51,'sprite decoder pixel budget halved');
+ c.A.magicLoading={};c.magicEnsureStage(11);
+ assert.deepEqual(Object.keys(c.A.magicWalk),['mage_wu'],'old faction textures released');
+ assert.deepEqual(Object.keys(c.A.magicAttack),['mage_wu'],'old attack textures released');
+}
 const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 for(const m of scripts)new Function(m[1]);
-console.log('PASS magic troops: three factions, four rotating spells, <=2 substitutions per stage, save/Drive, JS syntax');
+console.log('PASS magic troops: 3 factions, 4 spells, sprite memory/hero-switch guards, save/Drive, JS syntax');
