@@ -48,7 +48,7 @@ rep("  if(m.ally&&!m.dead)drawAllyTag(m);\n","  if(m.ally&&!m.dead)drawAllyTag(m
 
 # ── 3. 칸 시스템 : 지형 · 임무 · 미니맵 교체 ──
 a=src.index('function buildMusou(cfg){');b=src.index('/* ───────── 미션 ───────── */')
-src=src[:a]+rd('m3_lay.js')+'\n'+rd('m3_data.js')+'\n'+rd('m3_dlg.js')+'\n'+rd('m3_gen.js')+'\n'+src[b:]
+src=src[:a]+rd('m3_lay.js')+'\n'+rd('m3_data.js')+'\n'+rd('m3_kan_dialogues.js')+'\n'+rd('m3_dlg.js')+'\n'+rd('m3_gen.js')+'\n'+src[b:]
 a=src.index('/* ───────── 미션 ───────── */');b=src.index('/* ───────── 동료 ───────── */')
 src=src[:a]+rd('m3_mis.js')+src[b:]
 a=src.index('function drawMinimap(){');b=src.index('function buildCmdMenu(){')

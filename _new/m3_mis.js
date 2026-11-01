@@ -115,7 +115,7 @@ function buildKanTalk(run){
       lines=[pk];
       if(comp!=='npc'&&(n+i)%3===0)lines.push(['comp',KAN_COMP[(n+i)%KAN_COMP.length]]);
     }
-    run.dl['kan'+i]=lines.map(conv);
+    run.dl['kan'+i]=lines.filter(l=>l[0]!=='comp'||comp!=='npc').map(conv);
   }
 }
 /* ───────── 칸 옮기기 ───────── */
