@@ -13,7 +13,7 @@ window.CHOSEON_SYNC_DIRTY=false;
 </script>
 
 <!-- CHOSEON_LIVE_UPDATE: 2026-10-30-baseT-sync-v1 -->
-<!-- CHOSEON_GAME_REVISION: 20261107-all-hero-short-input-v1 -->
+<!-- CHOSEON_GAME_REVISION: 20261107-combat-perf-v2 -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@700;900&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;--bg:#0e0a14;--panel:rgba(26,16,38,.86);--line:#5a4270;--ink:#f6ecff;--dim:#a893c0;--hot:#ff5aa5;--gold:#ffd36b;--off:#322a40;--hp:#e8456b}
@@ -515,8 +515,8 @@ function drawSoldierWalk(m,dir,r,alpha){
   // drawMob이 적용하는 방향 반전·개체 크기·투명도를 그대로 재사용.
   cx.drawImage(im,f.col*362,f.row*362,362,362,x,y,size,size);
   if(m.hurt>0){
-    const key='sw:'+f.key+':'+f.row+':'+f.col;let c=white.get(key);
-    if(!c){c=newCanvas(362,362);const g=c.getContext('2d');g.drawImage(im,f.col*362,f.row*362,362,362,0,0,362,362);g.globalCompositeOperation='source-in';g.fillStyle='#fff';g.fillRect(0,0,362,362);white.set(key,c);}
+    const key='sw:'+f.key+':'+f.row+':'+f.col;let c=whiteCacheGet(key);
+    if(!c){c=newCanvas(362,362);const g=c.getContext('2d');g.drawImage(im,f.col*362,f.row*362,362,362,0,0,362,362);g.globalCompositeOperation='source-in';g.fillStyle='#fff';g.fillRect(0,0,362,362);whiteCachePut(key,c);}
     cx.globalAlpha=alpha*.75*(m.hurt/.14);cx.drawImage(c,x,y,size,size);
   }
   return true;
@@ -2804,8 +2804,19 @@ function mkCol(tx,ty,o){
     }
     if(ok)col.mobs.push(createMob(type,set,x,y,col,false));
   }
-  magicRecruit(col);
-  mobs.push(...col.mobs);m.colonies.push(col);return col;
+  // 증원 부대는 스테이지 준비 시 미리 구성할 수 있다. 활성화 전에는
+  // mobs/colonies에 등록하지 않으므로 판정·AI·미니맵·임무에 영향을 주지 않는다.
+  if(!o.reserve)magicRecruit(col);
+  if(o.reserve){col.reserved=true;}else{mobs.push(...col.mobs);m.colonies.push(col);}
+  return col;
+}
+function activateReservedColony(col){
+  if(!col||!col.reserved)return col;
+  col.idx=M.colonies.length;col.reserved=false;
+  // 마법 병사 교체도 기존과 동일하게 실제 증원 등록 시점에만 판정한다.
+  if(typeof magicRecruit==='function')magicRecruit(col);
+  M.colonies.push(col);mobs.push(...col.mobs);
+  return col;
 }
 function nearWalk(g,x,y){ // 가장 가까운 걸을 수 있는 칸
   x=Math.floor(x);y=Math.floor(y);
@@ -3520,7 +3531,12 @@ function gim05Init(m){
     .sort((a,b)=>Math.hypot(a.cx-x,a.cy-y)-Math.hypot(b.cx-x,b.cy-y)).slice(0,2)
     .map(c=>({x:c.cx,y:c.cy}));
   if(!spots.length)throw new Error('5판 증원 위치 없음');
-  m.defense05={x,y,r:260,left:60,wave:15,spots,oldGuard:g};
+  // 전투 중 15초마다 생성하던 증원은 로딩 시 구성하고, 예정 시각에만 등록한다.
+  const preparedWaves=[15,30,45].map((at,i)=>{
+    const p=spots[i%spots.length];return mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:m.set,tag:'gpt05_wave',reserve:true});
+  });
+  const preparedCounter=mkCol(x/TS,y/TS,{n:4,leader:true,guard:true,set:m.set,tag:'gpt05_counter',reserve:true});
+  m.defense05={x,y,r:260,left:60,wave:15,spots,oldGuard:g,preparedWaves,preparedCounter};
   // 방어 전의 수문장을 먼저 잡아도 문이 열리지 않는다.
   g.guardL=false;m.mis='defend05';
 }
@@ -3539,12 +3555,13 @@ function gim05Tick(dt){
   const elapsed=60-d.left;
   while(d.wave<=45&&elapsed>=d.wave){
     const p=d.spots[(d.wave/15-1)%d.spots.length];
-    const c=mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:m.set,tag:'gpt05_wave'});
+    const reserved=d.preparedWaves[d.wave/15-1];
+    const c=reserved&&reserved.reserved?activateReservedColony(reserved):mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:m.set,tag:'gpt05_wave'});
     wakeColony(c);d.wave+=15;
     showBanner('적 증원!',1.2);
   }
   if(d.left>0)return;
-  const c=mkCol(d.x/TS,d.y/TS,{n:4,leader:true,guard:true,set:m.set,tag:'gpt05_counter'});
+  const c=d.preparedCounter&&d.preparedCounter.reserved?activateReservedColony(d.preparedCounter):mkCol(d.x/TS,d.y/TS,{n:4,leader:true,guard:true,set:m.set,tag:'gpt05_counter'});
   m.guard=c.lead;wakeColony(c);m.mis='guard';
   showBanner('방어 성공 · 수문장을 제압하라',2.4);
 }
@@ -3732,9 +3749,11 @@ WEI_RULES[16]={
 };
 /* 17판 주유: 동남풍까지 버티며 쇠사슬 연결을 끊는다. */
 WEI_RULES[17]={
- init(m){m.wei={chains:weiPoints(m,3).map(p=>({...p,broken:false})),left:60,next:15,waves:0};},
+ init(m){const chains=weiPoints(m,3).map(p=>({...p,broken:false}));
+   const preparedWaves=chains.map(p=>mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:m.set,tag:'wu17_wave',reserve:true}));
+   m.wei={chains,left:60,next:15,waves:0,preparedWaves};},
  hit(rad){for(const c of M.wei.chains)if(!c.broken&&weiNear(P,c,rad)){c.broken=true;debris(c.x,c.y,35,10);showBanner('쇠사슬 절단!',1.8);}},
- tick(dt){const w=M.wei;w.left=Math.max(0,w.left-dt);const elapsed=60-w.left;while(w.waves<3&&elapsed>=w.next){const p=w.chains[w.waves],c=mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:M.set,tag:'wu17_wave'});wakeColony(c);w.waves++;w.next+=15;showBanner('적 증원 · 바람을 기다려라',1.6);}if(w.left===0&&w.chains.every(c=>c.broken))weiExit('동남풍 도착 · 쇠사슬 연결 저지 성공');},
+ tick(dt){const w=M.wei;w.left=Math.max(0,w.left-dt);const elapsed=60-w.left;while(w.waves<3&&elapsed>=w.next){const p=w.chains[w.waves],r=w.preparedWaves[w.waves],c=r&&r.reserved?activateReservedColony(r):mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:M.set,tag:'wu17_wave'});wakeColony(c);w.waves++;w.next+=15;showBanner('적 증원 · 바람을 기다려라',1.6);}if(w.left===0&&w.chains.every(c=>c.broken))weiExit('동남풍 도착 · 쇠사슬 연결 저지 성공');},
  death(){const w=M.wei;w.left=60;w.next=15;for(const c of w.chains)c.broken=false;},
  text(){const w=M.wei;return (w.left>0?'동남풍까지 '+Math.ceil(w.left)+'초':'동남풍 도착')+' · 쇠사슬 '+w.chains.filter(c=>c.broken).length+'/3';},
  target(){return M.wei.chains.find(c=>!c.broken)||M.wei.chains[0];},
@@ -3809,7 +3828,9 @@ WEI_RULES[21]={
 
 /* 22 장판교: 방어 지점에서 3차 적 공세를 저지. 지점 밖에서도 싸울 수 있다. */
 WEI_RULES[22]={
-  init(m){const points=weiPoints(m,3);m.wei={point:points[0],spawn:points,wave:0,phase:'approach',enemies:[],rest:0,elapsed:0,bridgeHp:100};},
+  init(m){const points=weiPoints(m,3);
+    const preparedWaves=points.map((p,i)=>{const v=nearWalk(m.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));return mkCol(v[0]+.5,v[1]+.5,{n:4+i,leader:true,set:m.set,tag:'shu22_wave',reserve:true});});
+    m.wei={point:points[0],spawn:points,wave:0,phase:'approach',enemies:[],rest:0,elapsed:0,bridgeHp:100,preparedWaves};},
   tick(dt){const w=M.wei;
     if(w.phase==='approach'){if(weiNear(P,w.point,200)){w.phase='fight';this.spawnWave();showBanner('장판교 방어 · 1차 공세!',2.0);}return;}
     if(w.phase==='rest'){w.rest-=dt;if(w.rest<=0){w.phase='fight';this.spawnWave();}return;}
@@ -3825,7 +3846,8 @@ WEI_RULES[22]={
     }
   },
   spawnWave(){const w=M.wei,p=w.spawn[w.wave%w.spawn.length],v=nearWalk(M.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));
-    const c=mkCol(v[0]+.5,v[1]+.5,{n:4+w.wave,leader:true,set:M.set,tag:'shu22_wave'});
+    const r=w.preparedWaves[w.wave];
+    const c=r&&r.reserved?activateReservedColony(r):mkCol(v[0]+.5,v[1]+.5,{n:4+w.wave,leader:true,set:M.set,tag:'shu22_wave'});
     w.enemies=c.mobs;w.elapsed=0;wakeColony(c);showBanner('반란군 '+(w.wave+1)+'/3차 공세!',2.0);
   },
   text(){const w=M.wei;return '장판교 '+w.wave+'/3차 방어 · 다리 '+Math.ceil(w.bridgeHp)+'%'+(w.phase==='approach'?' · 방어 지점으로':w.phase==='rest'?' · 적 접근 중':'');},
@@ -4069,13 +4091,16 @@ WEI_RULES[31]={
 WEI_RULES[32]={
   init(m){const points=weiPoints(m,3).sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y));
     const runner=points[0].col.lead;runner.sp*=1.16;runner.weiCourier=true;runner.guardL=false;
-    m.wei={points,runner,route:1,elapsed:0,escaped:false,reinforced:false};
+    const p=points[2],v=nearWalk(m.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));
+    const preparedReinforcement=mkCol(v[0]+.5,v[1]+.5,{n:6,leader:true,set:m.set,tag:'lord32_reinforce',reserve:true});
+    m.wei={points,runner,route:1,elapsed:0,escaped:false,reinforced:false,preparedReinforcement};
     wakeColony(runner.col);showBanner('하비 · 원군 전령을 추격하라!',2.2);},
   tick(dt){const w=M.wei;w.elapsed+=dt;
     if(w.runner.dead||w.runner.down){weiExit('전령 격파 · 원군 요청 저지');return;}
     if(w.elapsed>55&&!w.reinforced){w.escaped=w.reinforced=true;
       const p=w.points[2],v=nearWalk(M.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));
-      const c=mkCol(v[0]+.5,v[1]+.5,{n:6,leader:true,set:M.set,tag:'lord32_reinforce'});wakeColony(c);
+      const r=w.preparedReinforcement;
+      const c=r&&r.reserved?activateReservedColony(r):mkCol(v[0]+.5,v[1]+.5,{n:6,leader:true,set:M.set,tag:'lord32_reinforce'});wakeColony(c);
       showBanner('전령이 원군을 불렀다! 격파하고 전진!',2.3);
     }},
   mob(q,dt){const w=M.wei;if(q!==w.runner||q.dead||q.down||w.escaped)return false;
@@ -4091,7 +4116,9 @@ WEI_RULES[32]={
 /* 33 관도 우초: 견희 출전. 적의 3차 방화 공격에서 군량창고 최소 한 곳을 지킨다. */
 WEI_RULES[33]={
   init(m){const depots=weiPoints(m,2).map((p,i)=>({...p,id:i+1,hp:100}));
-    const spawn=weiPoints(m,3);m.wei={depots,spawn,wave:0,phase:'approach',enemies:[],rest:0,elapsed:0};
+    const spawn=weiPoints(m,3);
+    const preparedWaves=spawn.map((p,i)=>{const v=nearWalk(m.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));return mkCol(v[0]+.5,v[1]+.5,{n:5+i*2,leader:true,set:m.set,tag:'lord33_fire',reserve:true});});
+    m.wei={depots,spawn,wave:0,phase:'approach',enemies:[],rest:0,elapsed:0,preparedWaves};
     showBanner('견희 필수 출전 · 우초 군량고 두 곳을 지켜라',2.5);},
   tick(dt){const w=M.wei;if(w.phase==='approach'){
     if(w.depots.some(p=>weiNear(P,p,190))){w.phase='fight';this.spawnWave();}return;
@@ -4110,7 +4137,8 @@ WEI_RULES[33]={
   },
   spawnWave(){const w=M.wei,p=w.spawn[w.wave%w.spawn.length];
     const v=nearWalk(M.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));
-    const c=mkCol(v[0]+.5,v[1]+.5,{n:5+w.wave*2,leader:true,set:M.set,tag:'lord33_fire'});
+    const r=w.preparedWaves[w.wave];
+    const c=r&&r.reserved?activateReservedColony(r):mkCol(v[0]+.5,v[1]+.5,{n:5+w.wave*2,leader:true,set:M.set,tag:'lord33_fire'});
     w.enemies=c.mobs;w.elapsed=0;wakeColony(c);showBanner('우초 '+(w.wave+1)+'차 방화군 습격!',2);},
   text(){const w=M.wei;return '우초 '+w.wave+'/3차 방어 · 창고 '+w.depots.map(p=>Math.ceil(p.hp)+'%').join(' / ');},
   target(){const w=M.wei;return w.enemies.find(q=>!q.dead&&!q.down)||w.depots.find(p=>p.hp>0);},
@@ -5010,17 +5038,21 @@ function musouUI(){
 
 /* ───────── 그리기 ───────── */
 const white=new Map();
+const WHITE_LIMIT=96;
+function whiteCacheGet(key){const c=white.get(key);if(c){white.delete(key);white.set(key,c);}return c;}
+function whiteCachePut(key,c){if(white.has(key))white.delete(key);white.set(key,c);
+  if(white.size>WHITE_LIMIT)white.delete(white.keys().next().value);return c;}
 function whiteMob(set,type,dir){
-  const key=set+type+dir;let c=white.get(key);if(c)return c;
+  const key=set+type+dir;let c=whiteCacheGet(key);if(c)return c;
   const r=A.mj.mobs[set][type][dir];c=newCanvas(r.w,r.h);const g=c.getContext('2d');
   g.drawImage(A.mobs,r.x,r.y,r.w,r.h,0,0,r.w,r.h);g.globalCompositeOperation='source-in';g.fillStyle='#fff';g.fillRect(0,0,r.w,r.h);
-  white.set(key,c);return c;
+  whiteCachePut(key,c);return c;
 }
 function whiteWalk(type,row,col){
-  const key='w'+type+row+col;let c=white.get(key);if(c)return c;
+  const key='w'+type+row+col;let c=whiteCacheGet(key);if(c)return c;
   const fw=WALK[type].fw;c=newCanvas(fw,fw);const g=c.getContext('2d');
   g.drawImage(A.walk[type],col*fw,row*fw,fw,fw,0,0,fw,fw);g.globalCompositeOperation='source-in';g.fillStyle='#fff';g.fillRect(0,0,fw,fw);
-  white.set(key,c);return c;
+  whiteCachePut(key,c);return c;
 }
 function drawShadow(x,y,rx,ry,a){
   a=a||.3;const k=1.18;   // 번짐만큼 바깥으로 넓힌다
@@ -6806,11 +6838,14 @@ comboReset=function(){swordResetBase();CB.swordStep=0;CB.swordLast=0;if(P){P.cbS
 
 const swordPressBase=comboPress;
 comboPress=function(kind){
-  // 모든 무장에 동일 적용: 오래된 입력은 폐기, 연타는 한 번만 예약.
-  if(CB.pending&&comboNow()-CB.pending.at>CSWD.bufferMs)CB.pending=null;
+  // 게임 루프가 끊기는 동안 경과한 벽시계 시간은 입력 만료에 넣지 않는다.
+  // 입력은 여전히 한 개만 예약하며 실제 게임 진행 시간 250ms까지만 유효하다.
+  if(CB.pending&&(CB.pending.gameAge||0)*1000>CSWD.bufferMs)CB.pending=null;
   if(P?.cbMove||CB.pending)return false;
   CB.queued.length=0;
-  return swordPressBase(kind);
+  const accepted=swordPressBase(kind);
+  if(accepted&&CB.pending)CB.pending.gameAge=0;
+  return accepted;
 };
 
 const swordCancelBase=comboCancelReady;
@@ -6862,7 +6897,8 @@ comboTick=function(dt,n,inp){
     try{swordTickBase(dt,n,inp);}finally{CB.pending=waiting;}
   }
   const p=CB.pending;if(!p)return;
-  if(comboNow()-p.at>CSWD.bufferMs){CB.pending=null;return;}
+  p.gameAge=(p.gameAge||0)+dt;
+  if(p.gameAge*1000>CSWD.bufferMs){CB.pending=null;return;}
   if((!P.atk&&!P.sk&&!P.skHit)||comboCancelReady()){
     if(P.atk)comboReleaseAttack();
     CB.pending=null;comboBegin(p,n,inp);
@@ -6907,14 +6943,87 @@ drawPlayer=function(){
   try{return swordDrawBase();}finally{P.atkT=original;}
 };
 
+/* 전투 중 즉석 캔버스 생성 억제: 피격 흰색 실루엣을 여유 프레임에 사전 제작.
+   한 프레임에서 최대 한 개만 준비하며 기존 모션/실루엣/피격 수치를 바꾸지 않는다. */
+const CM_PREP={stage:null,scanned:0,tasks:[],queued:new Set(),built:0,maxBuildMs:0};
+const CM_PERF={frames:0,slowFrames:0,maxFrameMs:0,preparedMasks:0,largestMaskMs:0};
+if(typeof window!=='undefined')window.__choseonPerf=CM_PERF;
+
+function cmQueueMask(key,run){
+  if(white.has(key)||CM_PREP.queued.has(key))return;
+  CM_PREP.queued.add(key);CM_PREP.tasks.push({key,run});
+}
+function cmQueueMobMasks(m){
+  if(!m||m.magicUnit||m.final40Giant||m.finalNpc27||m.wuHidden)return;
+  const sprites=A.mj&&A.mj.mobs&&A.mj.mobs[m.set]&&A.mj.mobs[m.set][m.type];
+  if(!sprites||MT[m.type]?.still)return;
+  for(const dir of ['front','side','back'])if(sprites[dir]){
+    const key=m.set+m.type+dir;
+    cmQueueMask(key,()=>whiteMob(m.set,m.type,dir));
+  }
+  const sk=m.set+':'+m.type;
+  if(A.soldierWalk&&A.soldierWalk[sk]&&SOLDIER_WALK[sk]){
+    for(const row of [0,2,1])for(const col of [1,0,2,3]){
+      const key='sw:'+sk+':'+row+':'+col;
+      cmQueueMask(key,()=>{
+        const im=A.soldierWalk[sk],c=newCanvas(362,362),g=c.getContext('2d');
+        g.drawImage(im,col*362,row*362,362,362,0,0,362,362);
+        g.globalCompositeOperation='source-in';g.fillStyle='#fff';g.fillRect(0,0,362,362);
+        whiteCachePut(key,c);
+      });
+    }
+  }else if(A.walk&&A.walk[m.type]&&WALK[m.type]){
+    for(const row of [0,2,1])for(const col of [1,0,2,3]){
+      const key='w'+m.type+row+col;
+      cmQueueMask(key,()=>whiteWalk(m.type,row,col));
+    }
+  }
+}
+function cmCollectReserved(){
+  const waves=[];
+  if(M.wei){
+    if(M.wei.preparedWaves)waves.push(...M.wei.preparedWaves);
+    if(M.wei.preparedReinforcement)waves.push(M.wei.preparedReinforcement);
+  }
+  if(M.defense05){
+    if(M.defense05.preparedWaves)waves.push(...M.defense05.preparedWaves);
+    if(M.defense05.preparedCounter)waves.push(M.defense05.preparedCounter);
+  }
+  return waves;
+}
+function cmPrepareFrame(frameCost){
+  if(!M||!P||!M.musou||!A.mj)return;
+  if(CM_PREP.stage!==M){
+    CM_PREP.stage=M;CM_PREP.scanned=-1;CM_PREP.tasks.length=0;CM_PREP.queued.clear();
+  }
+  if(CM_PREP.scanned!==mobs.length){
+    CM_PREP.scanned=mobs.length;
+    for(const m of mobs)cmQueueMobMasks(m);
+    for(const col of cmCollectReserved())if(col)for(const m of col.mobs)cmQueueMobMasks(m);
+  }
+  // 렌더 자체가 느릴 때는 사전 제작을 미룬다. 순간이동 입장 중에는 우선 준비.
+  if(!CM_PREP.tasks.length||(P.mode!=='tele_in'&&frameCost>11))return;
+  const task=CM_PREP.tasks.shift();CM_PREP.queued.delete(task.key);
+  if(white.has(task.key))return;
+  const start=performance.now();
+  try{task.run();}catch(e){/* 특수 NPC 시트가 없는 경우 원래 렌더러의 대체 경로 사용 */return;}
+  const ms=performance.now()-start;
+  CM_PERF.preparedMasks++;CM_PERF.largestMaskMs=Math.max(CM_PERF.largestMaskMs,ms);
+}
+
 let last=performance.now();
 function loop(now){
-  const dt=Math.min(.1,(now-last)/1000);last=now;
+  const dt=Math.min(.05,(now-last)/1000);last=now;
   if(UI.mode==='battle'&&!UI.paused&&M&&P){
+    const frameStart=performance.now();
     const total=dt*(hstop>0?.15:1),n=Math.max(1,Math.ceil(total/(1/60)));
     for(let i=0;i<n;i++)step(total/n);
     hstop=Math.max(0,hstop-dt);
     render();
+    const cost=performance.now()-frameStart;
+    CM_PERF.frames++;if(cost>22)CM_PERF.slowFrames++;
+    CM_PERF.maxFrameMs=Math.max(CM_PERF.maxFrameMs,cost);
+    cmPrepareFrame(cost);
   }
   uiT+=dt;if(uiT>.1){uiT=0;refreshUI();}
   requestAnimationFrame(loop);
