@@ -11,7 +11,7 @@ const PLAY={active:'choseon'};
 const c={P,CB,ST,PLAY,performance:{now:()=>clock},UI:{mode:'battle',paused:false},ULT:{active:false},
   A:{man:{sword:{side:{frames:42}},spinfan:{front:{frames:72}}}},CH:80,REACH:{sword:146},M:{jarList:[]},
   fx:[],shake:0,CM_AUDIO:{haptic:()=>{}},stat:{atk:()=>100},Math,console,
-  faceTo:()=> 'right',dirKey:()=> ['side'],combatWeapon:()=> ST.wt,
+  faceTo:()=> 'right',dirKey:()=> ['side'],combatWeapon:()=> ST.wt,heroWeapon:()=>({rate:PLAY.active==='yinping'?.68:1}),
   comboNow:()=>clock,comboDirection:()=>({x:-1,y:0}),
   comboReleaseAttack(){P.atk=null;P.cbAction=null;P.cbMove=null;},
   comboReset(){CB.pending=null;CB.queued.length=0;CB.seq='';CB.last=0;},
@@ -31,7 +31,7 @@ const c={P,CB,ST,PLAY,performance:{now:()=>clock},UI:{mode:'battle',paused:false
   breakJars:()=>{},shake:0,
 };
 vm.createContext(c);
-vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'m3_choseon_sword.js'),'utf8'),c);
+vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'_new/m3_choseon_sword.js'),'utf8'),c);
 const ctl=vm.runInContext('({comboPress,comboTick,comboReset,comboAttackDuration,comboCancelReady,comboBegin,doHit,drawPlayer})',c);
 const tick=()=>ctl.comboTick(.016,null,{x:0,y:0});
 const press=k=>ctl.comboPress(k);
@@ -60,6 +60,12 @@ clock+=10;assert(press('light'));clock+=260;tick();assert.equal(CB.pending,null,
 assert.equal(CB.queued.length,0,'예약 큐에 공격이 남지 않음');
 
 PLAY.active='zhenji';ST.wt='fan';ctl.comboReset();P.atk=null;
-assert(press('light'));assert(press('heavy'));
-assert.equal(CB.queued.length,1,'다른 영웅의 기존 입력 처리 유지');
-console.log('PASS 초선 검 3타·파생 강공격·버퍼 소멸·방향 고정·다른 장수 보존');
+assert(press('light'));assert.equal(press('heavy'),false,'다른 영웅도 입력 중복 예약을 거절');
+assert.equal(CB.queued.length,0,'모든 무장에서 예약 큐 비활성화');
+for(const id of ['wenji','wangyi','xiaoqiao','daqiao','shangxiang','yinping','xingcai','yueying']){
+  PLAY.active=id;ST.wt=id==='wangyi'?'whip':'fan';ctl.comboReset();P.atk=null;P.cbMove=null;
+  assert(press('light'),id+' first press');
+  assert.equal(press('heavy'),false,id+' must not queue repeated taps');
+  assert.equal(CB.queued.length,0,id+' no automatic combo queue');
+}
+console.log('PASS 초선 검 3타·파생 강공격·버퍼 소멸·방향 고정·9명 전원 단일 입력');

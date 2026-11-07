@@ -6795,20 +6795,20 @@ updatePlayer=function(dt){
   }
 };
 
-/* 초선 검술 시범 적용. 다른 영웅·채찍·부채의 기존 조작은 그대로 둔다.
-   이미 제작된 3방향 검 모션 42~45프레임을 3구간으로 나눠 이어 재생한다. */
+/* 전 무장 공통: 단일 짧은 입력 버퍼, 다중 예약 금지, 무기 속도별 연결 제한.
+   초선 검의 3타 전용 모션·판정은 아래에서 별도로 유지한다. */
 const CSWD={bufferMs:250,chainMs:820,linkAt:[0,.62,.67,.72],lightDur:[0,.40,.47,.62]};
 const choseonSwordActive=()=>PLAY.active==='choseon'&&combatWeapon()==='sword';
+const comboChainLimit=()=>Math.max(CSWD.chainMs,Math.ceil(CSWD.chainMs/Math.max(.5,heroWeapon()?.rate||1)));
 
 const swordResetBase=comboReset;
 comboReset=function(){swordResetBase();CB.swordStep=0;CB.swordLast=0;if(P){P.cbSwordPilot=false;P.cbSwordStage=0;}};
 
 const swordPressBase=comboPress;
 comboPress=function(kind){
-  if(!choseonSwordActive())return swordPressBase(kind);
-  if(!P)return swordPressBase(kind);
-  // 필살기 중의 탭을 몇 초 뒤에 재생하지 않는다. 약공격은 한 번만 예약한다.
-  if(P.cbMove||CB.pending)return false;
+  // 모든 무장에 동일 적용: 오래된 입력은 폐기, 연타는 한 번만 예약.
+  if(CB.pending&&comboNow()-CB.pending.at>CSWD.bufferMs)CB.pending=null;
+  if(P?.cbMove||CB.pending)return false;
   CB.queued.length=0;
   return swordPressBase(kind);
 };
@@ -6823,7 +6823,11 @@ comboCancelReady=function(){
 
 const swordBeginBase=comboBegin;
 comboBegin=function(entry,n,inp){
-  if(!choseonSwordActive())return swordBeginBase(entry,n,inp);
+  if(!choseonSwordActive()){
+    // 느린 무기는 공격 자체가 길다. 입력 예약은 짧게, 연계 기록만 공속에 맞춘다.
+    if(entry.kind!=='dash'&&CB.last&&entry.at-CB.last>comboChainLimit())CB.seq='';
+    return swordBeginBase(entry,n,inp);
+  }
   if(entry.kind==='dash'){
     CB.swordStep=0;CB.swordLast=0;return swordBeginBase(entry,n,inp);
   }
@@ -6850,9 +6854,10 @@ comboBegin=function(entry,n,inp){
 
 const swordTickBase=comboTick;
 comboTick=function(dt,n,inp){
-  if(!choseonSwordActive())return swordTickBase(dt,n,inp);
+  // 기존 5연타 예약 큐를 전 무장에서 사용하지 않는다.
+  if(CB.queued.length)CB.queued.length=0;
   if(CB.dash){
-    // 기존 대시 물리/이펙트는 사용하되 긴 예약 큐는 실행하지 않는다.
+    // 기존 대시 물리/이펙트만 유지한다. 입력 예약은 아래에서 독립 처리.
     const waiting=CB.pending;CB.pending=null;
     try{swordTickBase(dt,n,inp);}finally{CB.pending=waiting;}
   }

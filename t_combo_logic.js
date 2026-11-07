@@ -2,14 +2,15 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-let now=5000;
+let now=5000,rate=1;
 const P={mode:'manual',hp:1000,face:'right',x:100,y:100,atk:null,sk:null,skHit:null,state:'idle'};
 const ST={wt:'sword',rng:1,prc:0};
+const PLAY={active:'zhenji'};
 const c={
- performance:{now:()=>now},P,ST,UI:{mode:'battle',paused:false},CH:60,ULT:{active:false},
+ performance:{now:()=>now},P,ST,PLAY,UI:{mode:'battle',paused:false},CH:60,ULT:{active:false},
  A:{man:{sword:{right:{frames:10}},whip:{right:{frames:10}},fan:{right:{frames:10}},spinfan:{right:{frames:10}}}},
  fx:[],pops:[],orbs:[],shake:0,faceTo:()=> 'right',
- dirKey:()=>['right'],combatWeapon:()=>ST.wt,enemyArmored:()=>false,
+ dirKey:()=>['right'],combatWeapon:()=>ST.wt,heroWeapon:()=>({rate}),enemyArmored:()=>false,
  manualAim:()=>({m:{x:200,y:100},d:100}),
  startAttack:(w)=>{P.atk=w;P.atkT=0;P.hitDone=false;},
  moveEnt:()=>{},rnd:(a,b)=>(a+b)/2,liveMobs:()=>[],
@@ -19,44 +20,58 @@ vm.createContext(c);
 const html=fs.readFileSync('index.html','utf8');
 const at=html.indexOf('const COMBO_TIMING='),end=html.indexOf('/* 무쌍',at);
 assert(at>=0&&end>at,'generated combo timing markers must exist');
-vm.runInContext(html.slice(at,end)+
+const overlay=fs.readFileSync('_new/m3_choseon_sword.js','utf8');
+const overlayEnd=overlay.indexOf('const swordDurationBase=');
+assert(overlayEnd>0,'unified input wrappers must exist');
+vm.runInContext(html.slice(at,end)+overlay.slice(0,overlayEnd)+
  '\nglobalThis.testCombo={CB,comboPress,comboTick,comboReset,comboAttackDuration};',c);
 const {CB,comboPress,comboTick,comboReset,comboAttackDuration}=c.testCombo;
-const hitWindow=()=>{P.atkT=8.4;P.hitDone=true;c.testCombo.comboTick(.016,null,{x:0,y:0});};
-function fast(seq,want){
- comboReset();CB.lastMove=null;P.atk=null;P.cbAction=null;P.cbMove=null;
- const before=CB.accepted;
- for(const k of seq){now+=65;assert.equal(comboPress(k==='L'?'light':'heavy'),true,seq+' input captured');}
- assert.equal(CB.accepted-before,seq.length,'every physical press must be counted');
- assert.equal(CB.queued.length,seq.length-1,'fast taps must wait in order');
- c.testCombo.comboTick(.016,null,{x:0,y:0});
- for(let i=1;i<seq.length;i++)hitWindow();
- assert.equal(CB.lastMove,want,seq+' must not confuse an extra light tap');
+const tick=()=>comboTick(.016,null,{x:0,y:0});
+const clear=()=>{comboReset();CB.lastMove=null;P.atk=null;P.cbAction=null;P.cbMove=null;P.sk=null;P.skHit=null;rate=1;};
+const tap=kind=>{assert.equal(comboPress(kind==='L'?'light':'heavy'),true);tick();};
+const follow=(kind,delay=220)=>{
+ now+=delay;P.atkT=8.5;P.hitDone=true;
+ assert.equal(comboPress(kind==='L'?'light':'heavy'),true);
+ tick();
+};
+function sequence(seq,want,weapon='whip'){
+ clear();PLAY.active='zhenji';ST.wt=weapon;
+ tap(seq[0]);
+ for(const k of seq.slice(1))follow(k);
+ assert.equal(CB.lastMove,want,seq+' must require separate timed physical taps');
  assert.equal(CB.pending,null);
  assert.equal(CB.queued.length,0);
 }
-fast('LLLH','pierce');
-fast('LLLLH','spin');
-fast('LLH','arc');
-fast('HHL','slam');
-fast('HHHL','rocks');
-// Taps made before the hit frame cannot skip ahead.
-comboReset();P.atk='sword';P.cbAction='light';P.cbMove=null;P.atkT=7.9;P.hitDone=true;
-assert.equal(comboPress('light'),true);assert.equal(comboPress('heavy'),true);
-c.testCombo.comboTick(.016,null,{x:0,y:0});
-assert.equal(P.cbAction,'light','no early cancel at 79%');
-P.atkT=8.3;hitWindow();assert.equal(P.cbAction,'light','follow-up stays light');
-hitWindow();assert.equal(P.cbAction,'heavy','next buffered tap stays ordered');
-// A finite five-tap buffer prevents runaway auto attacks.
-comboReset();P.atk='sword';P.cbAction='light';P.cbMove=null;P.atkT=0;P.hitDone=false;
-for(let i=0;i<5;i++)assert.equal(comboPress('light'),true);
-assert.equal(comboPress('heavy'),false,'sixth press exceeds bounded buffer');
-assert.equal(CB.queued.length,4);
-now+=3700;c.testCombo.comboTick(.016,null,{x:0,y:0});
-assert.equal(CB.pending,null,'stale input expires');
-assert.equal(CB.queued.length,0,'stale buffer clears together');
-comboReset();assert.equal(CB.queued.length,0);
-P.cbAction='light';ST.attackSpeed=undefined;
-assert.equal(comboAttackDuration(),.54,'current light attack timing remains');
-P.cbAction='heavy';assert.equal(comboAttackDuration(),.75,'current heavy attack timing remains');
-console.log('PASS rapid LLH/LLLH/LLLLH/HHL/HHHL, ordered five-tap queue, 82% hit guard, expiry and unchanged attack duration');
+sequence('LLH','arc');
+sequence('LLLH','pierce');
+sequence('LLLLH','spin');
+sequence('HHL','slam');
+sequence('HHHL','rocks');
+sequence('LLH','arc','fan');
+
+// A burst of taps does not queue a forced combo. A single tap can be buffered briefly.
+clear();ST.wt='whip';PLAY.active='zhenji';
+assert.equal(comboPress('light'),true);
+for(let i=0;i<5;i++)assert.equal(comboPress(i%2?'heavy':'light'),false);
+assert.equal(CB.queued.length,0,'the old five-tap queue is disabled');
+tick();assert.equal(P.cbAction,'light');
+now+=50;P.atkT=2;P.hitDone=false;
+assert.equal(comboPress('heavy'),true,'one short early tap is allowed');
+assert.equal(comboPress('light'),false,'no second pending tap');
+tick();assert.equal(P.cbAction,'light','early tap cannot cancel before hit');
+now+=251;tick();assert.equal(CB.pending,null,'250ms-old tap expires instead of playing late');
+P.atkT=8.5;P.hitDone=true;tick();
+assert.equal(P.cbAction,'light','expired heavy never attacks automatically');
+
+// Slow heroes get a longer combo-history window, not a longer input buffer.
+clear();ST.wt='sword';PLAY.active='yinping';rate=.68;
+tap('H');follow('H',1050);follow('L',1050);
+assert.equal(CB.lastMove,'slam','slow hero retains a deliberate HHL combo');
+clear();ST.wt='whip';PLAY.active='wangyi';rate=1.62;
+tap('L');follow('L',1030);follow('H',180);
+assert.notEqual(CB.lastMove,'arc','stale combo history resets for fast hero');
+
+clear();P.cbAction='light';ST.attackSpeed=undefined;
+assert.equal(comboAttackDuration(),.54);
+P.cbAction='heavy';assert.equal(comboAttackDuration(),.75);
+console.log('PASS all-weapon 250ms single input, no forced queued combos, deliberate LLH/LLLH/LLLLH/HHL/HHHL and speed-aware chain');
