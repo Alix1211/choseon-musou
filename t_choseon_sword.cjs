@@ -56,7 +56,10 @@ P.atkT=42*.45;P.hitDone=true;ctl.doHit('sword',1);
 assert.equal(hits.length,1);assert.equal(hits[0][3],270);
 
 ctl.comboReset();P.atk='sword';P.cbAction='light';P.cbMove=null;P.hitDone=false;
-clock+=10;assert(press('light'));clock+=260;tick();assert.equal(CB.pending,null,'250ms 후 예약 입력 소멸');
+clock+=10;assert(press('light'));clock+=500;tick();
+assert.notEqual(CB.pending,null,'렌더링 멈춤만으로 공격 입력이 사라지면 안 됨');
+for(let i=0;i<16;i++)tick();
+assert.equal(CB.pending,null,'실제 게임 진행 250ms 후 예약 입력 소멸');
 assert.equal(CB.queued.length,0,'예약 큐에 공격이 남지 않음');
 
 PLAY.active='zhenji';ST.wt='fan';ctl.comboReset();P.atk=null;

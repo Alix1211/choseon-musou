@@ -9,11 +9,14 @@ comboReset=function(){swordResetBase();CB.swordStep=0;CB.swordLast=0;if(P){P.cbS
 
 const swordPressBase=comboPress;
 comboPress=function(kind){
-  // 모든 무장에 동일 적용: 오래된 입력은 폐기, 연타는 한 번만 예약.
-  if(CB.pending&&comboNow()-CB.pending.at>CSWD.bufferMs)CB.pending=null;
+  // 게임 루프가 끊기는 동안 경과한 벽시계 시간은 입력 만료에 넣지 않는다.
+  // 입력은 여전히 한 개만 예약하며 실제 게임 진행 시간 250ms까지만 유효하다.
+  if(CB.pending&&(CB.pending.gameAge||0)*1000>CSWD.bufferMs)CB.pending=null;
   if(P?.cbMove||CB.pending)return false;
   CB.queued.length=0;
-  return swordPressBase(kind);
+  const accepted=swordPressBase(kind);
+  if(accepted&&CB.pending)CB.pending.gameAge=0;
+  return accepted;
 };
 
 const swordCancelBase=comboCancelReady;
@@ -65,7 +68,8 @@ comboTick=function(dt,n,inp){
     try{swordTickBase(dt,n,inp);}finally{CB.pending=waiting;}
   }
   const p=CB.pending;if(!p)return;
-  if(comboNow()-p.at>CSWD.bufferMs){CB.pending=null;return;}
+  p.gameAge=(p.gameAge||0)+dt;
+  if(p.gameAge*1000>CSWD.bufferMs){CB.pending=null;return;}
   if((!P.atk&&!P.sk&&!P.skHit)||comboCancelReady()){
     if(P.atk)comboReleaseAttack();
     CB.pending=null;comboBegin(p,n,inp);

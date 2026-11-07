@@ -249,7 +249,18 @@ function mkCol(tx,ty,o){
     }
     if(ok)col.mobs.push(createMob(type,set,x,y,col,false));
   }
-  mobs.push(...col.mobs);m.colonies.push(col);return col;
+  // 증원 부대는 스테이지 준비 시 미리 구성할 수 있다. 활성화 전에는
+  // mobs/colonies에 등록하지 않으므로 판정·AI·미니맵·임무에 영향을 주지 않는다.
+  if(o.reserve){col.reserved=true;}else{mobs.push(...col.mobs);m.colonies.push(col);}
+  return col;
+}
+function activateReservedColony(col){
+  if(!col||!col.reserved)return col;
+  col.idx=M.colonies.length;col.reserved=false;
+  // 마법 병사 교체도 기존과 동일하게 실제 증원 등록 시점에만 판정한다.
+  if(typeof magicRecruit==='function')magicRecruit(col);
+  M.colonies.push(col);mobs.push(...col.mobs);
+  return col;
 }
 function nearWalk(g,x,y){ // 가장 가까운 걸을 수 있는 칸
   x=Math.floor(x);y=Math.floor(y);

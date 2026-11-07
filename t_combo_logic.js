@@ -59,7 +59,9 @@ now+=50;P.atkT=2;P.hitDone=false;
 assert.equal(comboPress('heavy'),true,'one short early tap is allowed');
 assert.equal(comboPress('light'),false,'no second pending tap');
 tick();assert.equal(P.cbAction,'light','early tap cannot cancel before hit');
-now+=251;tick();assert.equal(CB.pending,null,'250ms-old tap expires instead of playing late');
+now+=500;tick();assert.notEqual(CB.pending,null,'500ms render freeze cannot discard an unprocessed attack input');
+for(let i=0;i<16;i++)tick();
+assert.equal(CB.pending,null,'250ms of running combat time expires unused input');
 P.atkT=8.5;P.hitDone=true;tick();
 assert.equal(P.cbAction,'light','expired heavy never attacks automatically');
 

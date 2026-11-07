@@ -104,8 +104,29 @@ if not os.environ.get('NOD'):
         "CB.pending=null;CB.queued.length=0;CB.seq='';CB.last=0;CB.dashUntil=0;CB.dash=null;")
     exec(open(B+'_new/p2magic.py',encoding='utf-8').read())
     exec(open(B+'_new/p2haptics.py',encoding='utf-8').read())
-    # 초선 검술 시범 패치: 다른 영웅·무기에는 영향 없는 런타임 래퍼.
-    rep('let last=performance.now();\nfunction loop(now){',rd('m3_choseon_sword.js')+'\nlet last=performance.now();\nfunction loop(now){')
+    # 피격 실루엣의 LRU 캐시: 스테이지를 넘나들어도 메모리가 계속 늘지 않도록 제한.
+    rep('const white=new Map();', '''const white=new Map();
+const WHITE_LIMIT=96;
+function whiteCacheGet(key){const c=white.get(key);if(c){white.delete(key);white.set(key,c);}return c;}
+function whiteCachePut(key,c){if(white.has(key))white.delete(key);white.set(key,c);
+  if(white.size>WHITE_LIMIT)white.delete(white.keys().next().value);return c;}''')
+    rep('let c=white.get(key);if(c)return c;', 'let c=whiteCacheGet(key);if(c)return c;', 2)
+    rep('white.set(key,c);return c;', 'whiteCachePut(key,c);return c;', 2)
+    # 전 무장 단일 버퍼 유지 + 피격 에셋 프레임별 사전 제작.
+    rep('let last=performance.now();\nfunction loop(now){',rd('m3_choseon_sword.js')+'\n'+rd('m3_perf_opt.js')+'\nlet last=performance.now();\nfunction loop(now){')
+    # 긴 프레임 뒤 다중 물리 스텝으로 다시 끊기는 악순환을 막는다.
+    rep('  const dt=Math.min(.1,(now-last)/1000);last=now;',
+        '  const dt=Math.min(.05,(now-last)/1000);last=now;')
+    rep('    const total=dt*(hstop>0?.15:1)',
+        '    const frameStart=performance.now();\n    const total=dt*(hstop>0?.15:1)')
+    rep('    render();\n  }\n  uiT+=dt;',
+        '''    render();
+    const cost=performance.now()-frameStart;
+    CM_PERF.frames++;if(cost>22)CM_PERF.slowFrames++;
+    CM_PERF.maxFrameMs=Math.max(CM_PERF.maxFrameMs,cost);
+    cmPrepareFrame(cost);
+  }
+  uiT+=dt;''')
     open(B+'index.html','w',encoding='utf-8').write(src)
 
 print('ok',len(src))

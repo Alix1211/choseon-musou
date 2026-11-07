@@ -12,8 +12,8 @@ function drawSoldierWalk(m,dir,r,alpha){
   // drawMob이 적용하는 방향 반전·개체 크기·투명도를 그대로 재사용.
   cx.drawImage(im,f.col*362,f.row*362,362,362,x,y,size,size);
   if(m.hurt>0){
-    const key='sw:'+f.key+':'+f.row+':'+f.col;let c=white.get(key);
-    if(!c){c=newCanvas(362,362);const g=c.getContext('2d');g.drawImage(im,f.col*362,f.row*362,362,362,0,0,362,362);g.globalCompositeOperation='source-in';g.fillStyle='#fff';g.fillRect(0,0,362,362);white.set(key,c);}
+    const key='sw:'+f.key+':'+f.row+':'+f.col;let c=whiteCacheGet(key);
+    if(!c){c=newCanvas(362,362);const g=c.getContext('2d');g.drawImage(im,f.col*362,f.row*362,362,362,0,0,362,362);g.globalCompositeOperation='source-in';g.fillStyle='#fff';g.fillRect(0,0,362,362);whiteCachePut(key,c);}
     cx.globalAlpha=alpha*.75*(m.hurt/.14);cx.drawImage(c,x,y,size,size);
   }
   return true;

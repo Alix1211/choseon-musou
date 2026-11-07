@@ -6,7 +6,12 @@ function gim05Init(m){
     .sort((a,b)=>Math.hypot(a.cx-x,a.cy-y)-Math.hypot(b.cx-x,b.cy-y)).slice(0,2)
     .map(c=>({x:c.cx,y:c.cy}));
   if(!spots.length)throw new Error('5판 증원 위치 없음');
-  m.defense05={x,y,r:260,left:60,wave:15,spots,oldGuard:g};
+  // 전투 중 15초마다 생성하던 증원은 로딩 시 구성하고, 예정 시각에만 등록한다.
+  const preparedWaves=[15,30,45].map((at,i)=>{
+    const p=spots[i%spots.length];return mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:m.set,tag:'gpt05_wave',reserve:true});
+  });
+  const preparedCounter=mkCol(x/TS,y/TS,{n:4,leader:true,guard:true,set:m.set,tag:'gpt05_counter',reserve:true});
+  m.defense05={x,y,r:260,left:60,wave:15,spots,oldGuard:g,preparedWaves,preparedCounter};
   // 방어 전의 수문장을 먼저 잡아도 문이 열리지 않는다.
   g.guardL=false;m.mis='defend05';
 }
@@ -25,12 +30,13 @@ function gim05Tick(dt){
   const elapsed=60-d.left;
   while(d.wave<=45&&elapsed>=d.wave){
     const p=d.spots[(d.wave/15-1)%d.spots.length];
-    const c=mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:m.set,tag:'gpt05_wave'});
+    const reserved=d.preparedWaves[d.wave/15-1];
+    const c=reserved&&reserved.reserved?activateReservedColony(reserved):mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:m.set,tag:'gpt05_wave'});
     wakeColony(c);d.wave+=15;
     showBanner('적 증원!',1.2);
   }
   if(d.left>0)return;
-  const c=mkCol(d.x/TS,d.y/TS,{n:4,leader:true,guard:true,set:m.set,tag:'gpt05_counter'});
+  const c=d.preparedCounter&&d.preparedCounter.reserved?activateReservedColony(d.preparedCounter):mkCol(d.x/TS,d.y/TS,{n:4,leader:true,guard:true,set:m.set,tag:'gpt05_counter'});
   m.guard=c.lead;wakeColony(c);m.mis='guard';
   showBanner('방어 성공 · 수문장을 제압하라',2.4);
 }

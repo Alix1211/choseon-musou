@@ -15,8 +15,8 @@ rep("  magic:{kind:'magic',speed:155,reach:650,keep:400,wind:.78,cd:2.4,shot:350
     "  mage_shu:{kind:'magic',speed:160,reach:610,keep:370,wind:.70,cd:2.55,shot:360},\n"
     "  mage_wu:{kind:'magic',speed:150,reach:590,keep:370,wind:.76,cd:2.70,shot:345},")
 rep("  const jobs=[];\n  loadStage40Image(","  const jobs=[];\n  magicQueueImages();\n  loadStage40Image(")
-rep("  mobs.push(...col.mobs);m.colonies.push(col);return col;",
-    "  magicRecruit(col);\n  mobs.push(...col.mobs);m.colonies.push(col);return col;")
+rep("  if(o.reserve){col.reserved=true;}else{mobs.push(...col.mobs);m.colonies.push(col);}",
+    "  if(!o.reserve)magicRecruit(col);\n  if(o.reserve){col.reserved=true;}else{mobs.push(...col.mobs);m.colonies.push(col);}")
 rep("function drawMob(m){\n  if(m.final40Giant)return;",
     "function drawMob(m){\n  if(m.magicUnit){drawMagicMob(m);return;}\n  if(m.final40Giant)return;")
 rep("    if(s.npcColor){const c=s.npcColor.join(',');",

@@ -1,8 +1,10 @@
 /* 17판 주유: 동남풍까지 버티며 쇠사슬 연결을 끊는다. */
 WEI_RULES[17]={
- init(m){m.wei={chains:weiPoints(m,3).map(p=>({...p,broken:false})),left:60,next:15,waves:0};},
+ init(m){const chains=weiPoints(m,3).map(p=>({...p,broken:false}));
+   const preparedWaves=chains.map(p=>mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:m.set,tag:'wu17_wave',reserve:true}));
+   m.wei={chains,left:60,next:15,waves:0,preparedWaves};},
  hit(rad){for(const c of M.wei.chains)if(!c.broken&&weiNear(P,c,rad)){c.broken=true;debris(c.x,c.y,35,10);showBanner('쇠사슬 절단!',1.8);}},
- tick(dt){const w=M.wei;w.left=Math.max(0,w.left-dt);const elapsed=60-w.left;while(w.waves<3&&elapsed>=w.next){const p=w.chains[w.waves],c=mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:M.set,tag:'wu17_wave'});wakeColony(c);w.waves++;w.next+=15;showBanner('적 증원 · 바람을 기다려라',1.6);}if(w.left===0&&w.chains.every(c=>c.broken))weiExit('동남풍 도착 · 쇠사슬 연결 저지 성공');},
+ tick(dt){const w=M.wei;w.left=Math.max(0,w.left-dt);const elapsed=60-w.left;while(w.waves<3&&elapsed>=w.next){const p=w.chains[w.waves],r=w.preparedWaves[w.waves],c=r&&r.reserved?activateReservedColony(r):mkCol(p.x/TS,p.y/TS,{n:4,leader:false,set:M.set,tag:'wu17_wave'});wakeColony(c);w.waves++;w.next+=15;showBanner('적 증원 · 바람을 기다려라',1.6);}if(w.left===0&&w.chains.every(c=>c.broken))weiExit('동남풍 도착 · 쇠사슬 연결 저지 성공');},
  death(){const w=M.wei;w.left=60;w.next=15;for(const c of w.chains)c.broken=false;},
  text(){const w=M.wei;return (w.left>0?'동남풍까지 '+Math.ceil(w.left)+'초':'동남풍 도착')+' · 쇠사슬 '+w.chains.filter(c=>c.broken).length+'/3';},
  target(){return M.wei.chains.find(c=>!c.broken)||M.wei.chains[0];},

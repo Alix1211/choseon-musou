@@ -28,13 +28,16 @@ WEI_RULES[31]={
 WEI_RULES[32]={
   init(m){const points=weiPoints(m,3).sort((a,b)=>Math.hypot(a.x-P.x,a.y-P.y)-Math.hypot(b.x-P.x,b.y-P.y));
     const runner=points[0].col.lead;runner.sp*=1.16;runner.weiCourier=true;runner.guardL=false;
-    m.wei={points,runner,route:1,elapsed:0,escaped:false,reinforced:false};
+    const p=points[2],v=nearWalk(m.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));
+    const preparedReinforcement=mkCol(v[0]+.5,v[1]+.5,{n:6,leader:true,set:m.set,tag:'lord32_reinforce',reserve:true});
+    m.wei={points,runner,route:1,elapsed:0,escaped:false,reinforced:false,preparedReinforcement};
     wakeColony(runner.col);showBanner('하비 · 원군 전령을 추격하라!',2.2);},
   tick(dt){const w=M.wei;w.elapsed+=dt;
     if(w.runner.dead||w.runner.down){weiExit('전령 격파 · 원군 요청 저지');return;}
     if(w.elapsed>55&&!w.reinforced){w.escaped=w.reinforced=true;
       const p=w.points[2],v=nearWalk(M.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));
-      const c=mkCol(v[0]+.5,v[1]+.5,{n:6,leader:true,set:M.set,tag:'lord32_reinforce'});wakeColony(c);
+      const r=w.preparedReinforcement;
+      const c=r&&r.reserved?activateReservedColony(r):mkCol(v[0]+.5,v[1]+.5,{n:6,leader:true,set:M.set,tag:'lord32_reinforce'});wakeColony(c);
       showBanner('전령이 원군을 불렀다! 격파하고 전진!',2.3);
     }},
   mob(q,dt){const w=M.wei;if(q!==w.runner||q.dead||q.down||w.escaped)return false;
@@ -50,7 +53,9 @@ WEI_RULES[32]={
 /* 33 관도 우초: 견희 출전. 적의 3차 방화 공격에서 군량창고 최소 한 곳을 지킨다. */
 WEI_RULES[33]={
   init(m){const depots=weiPoints(m,2).map((p,i)=>({...p,id:i+1,hp:100}));
-    const spawn=weiPoints(m,3);m.wei={depots,spawn,wave:0,phase:'approach',enemies:[],rest:0,elapsed:0};
+    const spawn=weiPoints(m,3);
+    const preparedWaves=spawn.map((p,i)=>{const v=nearWalk(m.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));return mkCol(v[0]+.5,v[1]+.5,{n:5+i*2,leader:true,set:m.set,tag:'lord33_fire',reserve:true});});
+    m.wei={depots,spawn,wave:0,phase:'approach',enemies:[],rest:0,elapsed:0,preparedWaves};
     showBanner('견희 필수 출전 · 우초 군량고 두 곳을 지켜라',2.5);},
   tick(dt){const w=M.wei;if(w.phase==='approach'){
     if(w.depots.some(p=>weiNear(P,p,190))){w.phase='fight';this.spawnWave();}return;
@@ -69,7 +74,8 @@ WEI_RULES[33]={
   },
   spawnWave(){const w=M.wei,p=w.spawn[w.wave%w.spawn.length];
     const v=nearWalk(M.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));
-    const c=mkCol(v[0]+.5,v[1]+.5,{n:5+w.wave*2,leader:true,set:M.set,tag:'lord33_fire'});
+    const r=w.preparedWaves[w.wave];
+    const c=r&&r.reserved?activateReservedColony(r):mkCol(v[0]+.5,v[1]+.5,{n:5+w.wave*2,leader:true,set:M.set,tag:'lord33_fire'});
     w.enemies=c.mobs;w.elapsed=0;wakeColony(c);showBanner('우초 '+(w.wave+1)+'차 방화군 습격!',2);},
   text(){const w=M.wei;return '우초 '+w.wave+'/3차 방어 · 창고 '+w.depots.map(p=>Math.ceil(p.hp)+'%').join(' / ');},
   target(){const w=M.wei;return w.enemies.find(q=>!q.dead&&!q.down)||w.depots.find(p=>p.hp>0);},

@@ -40,7 +40,9 @@ WEI_RULES[21]={
 
 /* 22 장판교: 방어 지점에서 3차 적 공세를 저지. 지점 밖에서도 싸울 수 있다. */
 WEI_RULES[22]={
-  init(m){const points=weiPoints(m,3);m.wei={point:points[0],spawn:points,wave:0,phase:'approach',enemies:[],rest:0,elapsed:0,bridgeHp:100};},
+  init(m){const points=weiPoints(m,3);
+    const preparedWaves=points.map((p,i)=>{const v=nearWalk(m.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));return mkCol(v[0]+.5,v[1]+.5,{n:4+i,leader:true,set:m.set,tag:'shu22_wave',reserve:true});});
+    m.wei={point:points[0],spawn:points,wave:0,phase:'approach',enemies:[],rest:0,elapsed:0,bridgeHp:100,preparedWaves};},
   tick(dt){const w=M.wei;
     if(w.phase==='approach'){if(weiNear(P,w.point,200)){w.phase='fight';this.spawnWave();showBanner('장판교 방어 · 1차 공세!',2.0);}return;}
     if(w.phase==='rest'){w.rest-=dt;if(w.rest<=0){w.phase='fight';this.spawnWave();}return;}
@@ -56,7 +58,8 @@ WEI_RULES[22]={
     }
   },
   spawnWave(){const w=M.wei,p=w.spawn[w.wave%w.spawn.length],v=nearWalk(M.D.g,Math.floor(p.x/TS)+2,Math.floor(p.y/TS));
-    const c=mkCol(v[0]+.5,v[1]+.5,{n:4+w.wave,leader:true,set:M.set,tag:'shu22_wave'});
+    const r=w.preparedWaves[w.wave];
+    const c=r&&r.reserved?activateReservedColony(r):mkCol(v[0]+.5,v[1]+.5,{n:4+w.wave,leader:true,set:M.set,tag:'shu22_wave'});
     w.enemies=c.mobs;w.elapsed=0;wakeColony(c);showBanner('반란군 '+(w.wave+1)+'/3차 공세!',2.0);
   },
   text(){const w=M.wei;return '장판교 '+w.wave+'/3차 방어 · 다리 '+Math.ceil(w.bridgeHp)+'%'+(w.phase==='approach'?' · 방어 지점으로':w.phase==='rest'?' · 적 접근 중':'');},
