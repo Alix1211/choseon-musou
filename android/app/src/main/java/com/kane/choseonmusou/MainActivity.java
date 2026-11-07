@@ -37,6 +37,7 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends Activity {
     // A controlled live branch. The game's JavaScript updates only on a new app
     // launch. Rendering origin remains appassets, preserving existing localStorage.
+    // Older remote/cached HTML must not override this APK's newer combat input.
     private static final String LIVE_URL =
         "https://raw.githubusercontent.com/Alix1211/choseon-musou/mobile-live/index.html";
     private static final String ORIGIN = "https://appassets.androidplatform.net";
@@ -140,7 +141,7 @@ public final class MainActivity extends Activity {
         if (bytes == null || bytes.length < 120000 || bytes.length > 1500000) return false;
         String html = new String(bytes, StandardCharsets.UTF_8);
         return html.contains("CHOSEON_LIVE_UPDATE:") &&
-                html.contains("CHOSEON_GAME_REVISION: 20261031-hero-attack-v1") &&
+                html.contains("CHOSEON_GAME_REVISION: 20261107-all-hero-short-input-v1") &&
                 html.contains("const SAVEKEY='choseon_musou_v2'") &&
                 html.contains("function endStage()") &&
                 html.contains("window.ChoseonCloud=");
